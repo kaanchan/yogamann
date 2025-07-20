@@ -1,0 +1,11 @@
+steps: 30
+seed: null
+sheet_scale: 1.0      # contact sheets 100% of orig
+cond_scale: 1.0       # lock limbs tightly to mask
+guidance: 7.5         # let pose dominate over text
+prompt: |
+  wooden artist mannequin, detailed ash wood grain,
+  performing advanced yoga asana, full articulation, no props,
+  studio lighting
+neg_prompt: |
+  blocks, chair, foam mat, extra limbs, disassembly, merged limbs, neon, psychedelic, posterized, high saturation
