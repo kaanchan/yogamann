@@ -52,7 +52,7 @@ def run_pipeline(photo, mask_png, out_png,
     control_img.save(mask_png)
 
     # 2️⃣ Full render
-    gen = torch.Generator(device).manual_seed(seed) if seed else None
+    gen = torch.Generator(device).manual_seed(seed) if seed is not None else None
     w, h = Image.open(photo).size
     w8, h8 = ceil(w/8)*8, ceil(h/8)*8
 
