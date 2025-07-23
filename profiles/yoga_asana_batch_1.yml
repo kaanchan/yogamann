@@ -1,0 +1,23 @@
+# Profile: yoga_random
+profile_version: 1.0
+
+# Global controls
+versions: 2          # generate five variants of EACH input photo
+random: true         # draw every ranged value uniformly for each version
+
+# Prompt knobs
+prompt: |
+  wooden artist mannequin, advanced yoga asana,
+  studio lighting, detailed ash wood grain, no props
+neg_prompt: |
+  blocks, chair, foam mat, extra limbs, disassembly, merged limbs,
+  neon, psychedelic, posterized, high saturation
+
+# Numeric parameters
+steps      : [25, 45]    # any int between 25 – 45
+cond_scale : [1.0, 1.4]  # ControlNet strength
+guidance   : 6.5         # single value → repeated
+seed       : [0, 99999]  # random seed each run (useful for diversity)
+
+# Renderer / model tweaks (place‑holders; see discussion below)
+base_model: runwayml/stable-diffusion-v1-5

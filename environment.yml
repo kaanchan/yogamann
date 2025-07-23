@@ -1,44 +1,32 @@
-# ------------- conda environment file for the “yogamann” project -------------
-#
-#  ❑ CREATE  :   conda env create -f environment.yml
-#  ❑ UPDATE  :   conda env update  -f environment.yml
-#  ❑ USE     :   conda activate yogamann
-#
-#  WHY THESE PINS
-#  ─────────────────────────────────────────────────────────────────────────────
-#    • torch / torchvision / torchaudio must share the *exact*    major.minor.patch
-#      to avoid kernel‑registration errors (the “operator nms does not exist” bug).
-#    • xformers wheels are compiled for a specific torch version; 0.0.37 targets 2.3.x.
-#    • GTX‑10 series GPUs top out at CUDA 11.8, so we grab the cu118 builds.
-#    • We drop the pytorch‑cuda meta‑package; plain conda + pip wheels are simpler here.
-#
-#  CPU‑only users:
-#       – remove the entire torch / torchvision / torchaudio trio
-#       – add “cpuonly” to dependencies
-#
-# ---------------------------------------------------------------------------
+# ── yogamann reproducible environment ─────────────────────────────────
+#   conda env create -f environment.yml
+#   conda activate yogamann
+#   conda env update  -f environment.yml        # bring an existing env up‑to‑date
+# ---------------------------------------------------------------------
 
 name: yogamann
 channels:
-  - pytorch      # official PyTorch builds (conda & pip wheels indexed here)
-  - conda-forge  # everything else
+  - pytorch        # official PyTorch + CUDA wheels
+  - conda-forge    # everything else
 dependencies:
-  # ── core runtime ────────────────────────────────────────────────────────
-  - python=3.10                        # MediaPipe still limited to <=3.11
-  # grab the cu118 builds of the 2.3.1 trio
-  - pytorch=2.3.1                     # ⇒ torch‑2.3.1+cu118
-  - torchvision=0.18.1                #   (conda auto‑picks the matching build)
+  # ── core runtime ────────────────────────────────────────────────────
+  - python=3.10                           # MediaPipe still limited to <=3.11
+  - pytorch=2.3.1                         # builds come with cu118 CUDA libs
+  - torchvision=0.18.1
   - torchaudio=2.3.1
-  # ── CV utilities ────────────────────────────────────────────────────────
-  - opencv                             # pose detection / image IO
-  - pillow                             # PNG metadata editing
-  - numpy                              # basic maths
-  # ── allow PyPI extras below ───────────────────────────────────
+  # ── computer‑vision utilities ───────────────────────────────────────
+  - opencv                                # pose detection / image IO
+  - pillow                                # PNG metadata + general imaging
+  - numpy                                 # basic maths
+  - timm                                  # Tiny‑ViT backbones for ControlNet
+  # ── allow PyPI extras below ─────────────────────────────────────────
   - pip
   - pip:
-      - mediapipe
-      - diffusers>=0.27
-      - transformers>=4.41
-      - safetensors
-      - controlnet_aux
-      # - xformers            # ← Leave commented; see note below
+      - diffusers==0.34.0      # matches code in sd_make.py
+      - transformers==4.41.*   # 4.41.2 at the time of writing
+      - safetensors>=0.3.1
+      - huggingface-hub>=0.33
+      - accelerate             # quiets diffusers “install accelerate” warning
+      - mediapipe              # 3‑D pose estimation
+      - controlnet_aux>=0.0.8  # open‑pose wrapper
+      # - xformers==0.0.37.post1  # optional – build/​install only if desired
