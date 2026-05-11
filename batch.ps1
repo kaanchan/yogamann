@@ -1,16 +1,15 @@
 param(
-    # What to process: a single image file, or a directory (walked recursively)
-    # Defaults to the current working directory.
-    [string]$Source,
+    # What to process: a single image file, or any subdirectory (walked recursively).
+    # Defaults to the full data library root.
+    [string]$Source     = "D:\Temp\yogamann-data\Yoga Deck - Kaushalam Ways",
 
-    # Root used for relative-path mirroring into OutputRoot.
-    # Defaults to $Source itself (when Source is a dir) or its parent (when Source is a file).
-    # Override when processing a sub-folder but wanting outputs in the full tree:
-    #   .\batch.ps1 -Source ".\Asanas\Vajrasana" -SourceRoot ".\Yoga Deck" -OutputRoot "D:\outputs"
-    [string]$SourceRoot,
+    # Top of the source library — used to compute relative paths for mirroring.
+    # Always defaults to the data root so subfolder runs still produce the full structure:
+    #   .\batch.ps1 -Source "...\Asanas\Vajrasana"
+    #   → output: D:\Temp\yogamann-output\Asanas\Vajrasana\  (not \Vajrasana\)
+    [string]$SourceRoot = "D:\Temp\yogamann-data\Yoga Deck - Kaushalam Ways",
 
-    # Where to write outputs, preserving the directory structure relative to SourceRoot.
-    # Defaults to a folder named "yogamann-outputs" placed next to SourceRoot (sibling).
+    # Where outputs land, mirroring SourceRoot structure.
     [string]$OutputRoot = "D:\Temp\yogamann-output",
 
     [string]$PipelineProfile = "yoga_asana",
@@ -24,22 +23,12 @@ $ImageExt = @(".jpg", ".jpeg", ".png", ".webp")
 $env:YOGAMANN_LOG_LEVEL = $LogLevel
 $env:HF_HUB_OFFLINE     = "1"
 
-# ── Resolve defaults ───────────────────────────────────────────────────────────
-if (-not $Source) { $Source = (Get-Location).Path }
+# ── Resolve paths ──────────────────────────────────────────────────────────────
 $ResolvedSource = (Resolve-Path $Source -ErrorAction Stop).Path.TrimEnd('\', '/')
+$SourceRoot     = $SourceRoot.TrimEnd('\', '/')
+$OutputRoot     = $OutputRoot.TrimEnd('\', '/')
 
 $isFile = Test-Path $ResolvedSource -PathType Leaf
-
-if (-not $SourceRoot) {
-    $SourceRoot = if ($isFile) { [System.IO.Path]::GetDirectoryName($ResolvedSource) }
-                  else         { $ResolvedSource }
-}
-$SourceRoot = $SourceRoot.TrimEnd('\', '/')
-
-if (-not $OutputRoot) {
-    $OutputRoot = Join-Path (Split-Path $SourceRoot -Parent) "yogamann-outputs"
-}
-$OutputRoot = $OutputRoot.TrimEnd('\', '/')
 
 Write-Host ""
 Write-Host "Source     : $ResolvedSource" -ForegroundColor White
