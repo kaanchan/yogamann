@@ -126,7 +126,7 @@ def build_gallery(out_dir: pathlib.Path) -> pathlib.Path:
         images.extend(sorted(out_dir.glob(pat)))
 
     if not images:
-        print(f"⚠ No comparison PNGs found in {out_dir}")
+        print(f"[warn] No comparison PNGs found in {out_dir}")
         return out_dir / "index.html"
 
     cards = "\n".join(_card(p, out_dir) for p in images)
@@ -155,7 +155,7 @@ def build_gallery(out_dir: pathlib.Path) -> pathlib.Path:
 
     dest = out_dir / "index.html"
     dest.write_text(page, encoding="utf-8")
-    print(f"✓ gallery written: {dest}  ({len(images)} images)")
+    print(f"[OK] gallery written: {dest}  ({len(images)} images)")
     return dest
 
 

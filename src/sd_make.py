@@ -84,7 +84,7 @@ def render(task: Dict, device: str, pipe) -> None:
         pts = make_controlnet_mask(task["photo"], str(tmp_png))
         save_keypoints(pts, str(json_path), task["photo"])
     except Exception as e:  # pose might fail on very wide crops
-        print(f"⚠ pose‑JSON skipped: {e}")
+        print(f"[warn] pose‑JSON skipped: {e}")
 
     # ------------------------------------------------------------------
     # 3. DIFFUSION
@@ -117,7 +117,7 @@ def render(task: Dict, device: str, pipe) -> None:
         meta.add_text(f"cfg/{k}", str(v))
     Path(task["output_png"]).parent.mkdir(parents=True, exist_ok=True)
     result.save(task["output_png"], pnginfo=meta)
-    print("✓", Path(task["output_png"]).name)
+    print("[OK]", Path(task["output_png"]).name)
 
     # ------------------------------------------------------------------
     # 4. CONTACT‑SHEETS
@@ -145,7 +145,7 @@ def render(task: Dict, device: str, pipe) -> None:
             scale,
         )
     except Exception as e:
-        print(f"⚠ contact‑sheet skipped: {e}")
+        print(f"[warn] contact‑sheet skipped: {e}")
 
 
 # ── CLI boilerplate (unchanged) ────────────────────────────────────────

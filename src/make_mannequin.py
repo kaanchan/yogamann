@@ -103,7 +103,7 @@ def build_tasks(photo: pathlib.Path, cfg: Dict) -> List[Dict]:
     # collapse only if seed fixed & all params identical
     if V > 1 and cfg.get("seed") is not None and not rnd \
        and all(len(set(v)) == 1 for v in fields.values()):
-        print(f"⚠ [{photo.name}] versions>1 but no varying params; generating v1 only")
+        print(f"[warn] [{photo.name}] versions>1 but no varying params; generating v1 only")
         V = 1
 
     stem0 = next_free_stem(photo.stem, f"--{pad_version(1,V)}.png")
@@ -164,7 +164,7 @@ if not photos:
 worklist = [t for photo in photos for t in build_tasks(photo.resolve(), cfg)]
 if args.dump_worklist:
     pathlib.Path(args.dump_worklist).write_text(json.dumps(worklist, indent=2))
-    print("✓ work‑list written:", args.dump_worklist)
+    print("[OK] work‑list written:", args.dump_worklist)
     if args.dump_only:
         sys.exit(0)
 
@@ -176,4 +176,5 @@ for t in worklist:
         input=json.dumps([t]),
         text=True,
         check=True,
+        env={**os.environ, "PYTHONUTF8": "1"},
     )

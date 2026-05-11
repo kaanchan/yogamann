@@ -24,7 +24,7 @@ accelerate
 
 # ── Pose / ControlNet ────────────────────────────────────────────────────
 controlnet_aux>=0.0.8
-mediapipe
+mediapipe==0.10.9
 
 # ── Image / vision utilities ─────────────────────────────────────────────
 opencv-python
