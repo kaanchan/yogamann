@@ -80,11 +80,12 @@ def render(task: Dict, device: str, pipe) -> None:
     # 1. CONTROLNET MASK  (DWPose)
     # ------------------------------------------------------------------
     log.info("Detecting pose — %s", photo.name)
-    t0 = time.time()
+    t_pose = time.time()
     detector = DWposeDetector()
     control_img = detector(Image.open(task["photo"]).convert("RGB"))
     control_img.save(task["mask_png"])
-    log.debug("Pose detection took %.1fs", time.time() - t0)
+    pose_s = time.time() - t_pose
+    log.debug("Pose detection took %.1fs", pose_s)
 
     # ------------------------------------------------------------------
     # 2. OPTIONAL -- pose key-points JSON (best-effort)
@@ -104,16 +105,17 @@ def render(task: Dict, device: str, pipe) -> None:
     gen = torch.Generator(device=device)
     if cfg.get("seed") is not None:
         gen.manual_seed(int(cfg["seed"]))
+    actual_seed = gen.initial_seed()
 
     img = Image.open(task["photo"])
     w, h = img.size
     w64 = max(1024, ceil(w / 64) * 64)
     h64 = max(1024, ceil(h / 64) * 64)
 
-    log.info("Generating image — %dx%d  steps=%d  (compile warmup on first run)",
-             w64, h64, steps)
+    log.info("Generating image — %dx%d  steps=%d  seed=%d  (compile warmup on first run)",
+             w64, h64, steps, actual_seed)
     log.debug("VRAM before generation: %s", _vram())
-    t0 = time.time()
+    t_gen = time.time()
 
     result = pipe(
         prompt=cfg["prompt"],
@@ -127,8 +129,8 @@ def render(task: Dict, device: str, pipe) -> None:
         height=h64,
     ).images[0]
 
-    elapsed = time.time() - t0
-    log.info("Generation complete — %.1fs  (%.1fs/step)", elapsed, elapsed / steps)
+    gen_s = time.time() - t_gen
+    log.info("Generation complete — %.1fs  (%.1fs/step)", gen_s, gen_s / steps)
     log.debug("VRAM after generation: %s", _vram())
 
     meta = PngImagePlugin.PngInfo()
@@ -139,6 +141,32 @@ def render(task: Dict, device: str, pipe) -> None:
     Path(task["output_png"]).parent.mkdir(parents=True, exist_ok=True)
     result.save(task["output_png"], pnginfo=meta)
     log.info("Saved → %s", Path(task["output_png"]).name)
+
+    metrics = {
+        "timestamp"   : time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "input_photo" : str(photo),
+        "output_png"  : task["output_png"],
+        "seed"        : actual_seed,
+        "steps"       : steps,
+        "guidance"    : cfg["guidance"],
+        "cond_scale"  : cfg["cond_scale"],
+        "prompt"      : cfg["prompt"],
+        "neg_prompt"  : cfg.get("neg_prompt"),
+        "width"       : w64,
+        "height"      : h64,
+        "profile"     : cfg.get("profile"),
+        "timing"      : {
+            "pose_s"    : round(pose_s, 2),
+            "generate_s": round(gen_s, 2),
+            "total_s"   : round(pose_s + gen_s, 2),
+            "s_per_step": round(gen_s / steps, 2),
+        },
+        "rating"      : None,
+        "notes"       : None,
+    }
+    metrics_path = Path(task["output_png"]).with_suffix(".metrics.json")
+    metrics_path.write_text(json.dumps(metrics, indent=2))
+    log.info("Metrics → %s", metrics_path.name)
 
     # ------------------------------------------------------------------
     # 4. CONTACT-SHEETS

@@ -20,6 +20,7 @@ function Invoke-Step {
 
 switch ($Target) {
     "test" {
+        $env:HF_HUB_OFFLINE = "1"
         Invoke-Step "Generate mannequin: $Sample" {
             & $Python src/make_mannequin.py $Sample --profile $PipelineProfile --log-level $LogLevel
         }
@@ -27,6 +28,7 @@ switch ($Target) {
         Start-Process "out\index.html"
     }
     "test-all" {
+        $env:HF_HUB_OFFLINE = "1"
         Invoke-Step "Generate mannequins: all input images" {
             & $Python src/make_mannequin.py --folder input --profile $PipelineProfile --log-level $LogLevel
         }
