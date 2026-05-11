@@ -2,6 +2,14 @@
 
 <!-- newest session at top — append-only, never rewrite -->
 
+## 2026-05-11 — Session 3 cont: model download + make.ps1 fixes
+
+- HF_HUB_CACHE set to D:\models\hub (system-wide, all projects share cache)
+- make.ps1 download target fixed: huggingface-cli path corrected, $Profile renamed
+- Blocked: safetensors download extremely slow even with HF_TOKEN set — need fast download tool
+- Models still needed: xinsir/controlnet-openpose-sdxl-1.0 (~2.5 GB), stabilityai/stable-diffusion-xl-base-1.0 (~7 GB), depth-anything/Depth-Anything-V2-Small-hf (~100 MB)
+- Commit: bdb8294
+
 ## 2026-05-11 — Session 3 cont: logging + run.ps1 runner
 
 - Issue #11 closed: run.ps1 created — targets: test/test-all/diag/gallery/open; -LogLevel param; colored headers; browser auto-open on success

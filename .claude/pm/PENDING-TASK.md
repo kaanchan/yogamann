@@ -16,9 +16,11 @@
 
 - [x] Fix FP8 benchmark (both rtx5080-test.py) — #8 closed, commit 2d24a76
 - [x] torch.compile in sd_make.py — #9 closed, commit 2d24a76
-- [x] run.ps1 test runner — #11 closed, commit 13fa538
+- [x] make.ps1 test runner — #11 closed, commit 13fa538
 - [x] Structured logging throughout — #12 closed, commit 13fa538
-- [ ] First end-to-end image test — `.\run.ps1` — user confirms (#7)
+- [ ] Fix slow model download — investigate fast download tool (aria2c / hf_transfer / huggingface-cli with resume)
+- [ ] Download all models to D:\models\hub — user confirms downloads complete
+- [ ] First end-to-end image test — `.\make.ps1` — user confirms (#7)
 - [ ] Commit, push, close #7
 - [ ] Check torchao nightly for cu130 Windows wheel (#10)
 - [ ] Install torchao, add real NVFP4 benchmark (#10)
