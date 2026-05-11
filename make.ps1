@@ -18,14 +18,6 @@ function Invoke-Step {
     }
 }
 
-# Models required by the pipeline
-$Models = @(
-    "xinsir/controlnet-openpose-sdxl-1.0",
-    "stabilityai/stable-diffusion-xl-base-1.0",
-    "depth-anything/Depth-Anything-V2-Small-hf",
-    "lllyasviel/Annotators"
-)
-
 switch ($Target) {
     "test" {
         Invoke-Step "Generate mannequin: $Sample" {
@@ -55,16 +47,13 @@ switch ($Target) {
     }
     "download" {
         if (-not $env:HF_TOKEN) {
-            Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slow (unauthenticated)." -ForegroundColor Yellow
+            Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slower (unauthenticated)." -ForegroundColor Yellow
             Write-Host "       Get a free read token at https://huggingface.co/settings/tokens" -ForegroundColor Yellow
             Write-Host "       Then: `$env:HF_TOKEN = 'hf_...'; .\make.ps1 -Target download`n" -ForegroundColor Yellow
         }
-        foreach ($model in $Models) {
-            Invoke-Step "Download $model" {
-                & .\.venv\Scripts\huggingface-cli.exe download $model
-            }
+        Invoke-Step "Download all models (hf_transfer)" {
+            & $Python src/download_models.py
         }
-        Write-Host "`nAll models cached. Run .\make.ps1 to generate." -ForegroundColor Green
     }
     default {
         Write-Host "Usage: .\make.ps1 [-Target <target>] [-LogLevel <level>]" -ForegroundColor Yellow

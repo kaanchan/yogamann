@@ -23,6 +23,9 @@ dependencies = [
     # torch — pulled from nightly cu130 index below
     "torch",
     "torchvision",
+    "hf-transfer>=0.1.9",
+    "rtmlib>=0.0.15",
+    "matplotlib>=3.10.9",
 ]
 
 [tool.uv]

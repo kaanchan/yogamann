@@ -26,14 +26,13 @@ from diffusers import (
     ControlNetModel,
     DPMSolverMultistepScheduler,
 )
-from controlnet_aux import DWposeDetector
+from dwpose_onnx import DWposeDetector
 
 from extract_pose import make_controlnet_mask, save_keypoints
 from create_contact_sheet import build_comparison_2, build_comparison_4
 
 BASE_ID    = "stabilityai/stable-diffusion-xl-base-1.0"
 CONTROL_ID = "xinsir/controlnet-openpose-sdxl-1.0"
-DETECTOR_ID = "lllyasviel/Annotators"
 
 
 def _vram() -> str:
@@ -52,6 +51,7 @@ def build_pipe(device: str):
         BASE_ID,
         controlnet=cn,
         torch_dtype=torch.bfloat16,
+        variant="fp16",
     )
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
@@ -59,9 +59,12 @@ def build_pipe(device: str):
     pipe.requires_safety_checker = False
     log.debug("VRAM after pipeline load: %s", _vram())
 
-    # Blackwell kernel fusion. First forward pass triggers compilation (~2-5 min).
-    log.info("Compiling UNet with torch.compile (first run: ~2-5 min warmup)")
-    pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
+    try:
+        import triton  # noqa: F401
+        log.info("Compiling UNet with torch.compile (first run: ~2-5 min warmup)")
+        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
+    except ImportError:
+        log.warning("Triton not available — skipping torch.compile (install triton for ~2x speedup)")
     return pipe
 
 
@@ -78,7 +81,7 @@ def render(task: Dict, device: str, pipe) -> None:
     # ------------------------------------------------------------------
     log.info("Detecting pose — %s", photo.name)
     t0 = time.time()
-    detector = DWposeDetector.from_pretrained(DETECTOR_ID)
+    detector = DWposeDetector()
     control_img = detector(Image.open(task["photo"]).convert("RGB"))
     control_img.save(task["mask_png"])
     log.debug("Pose detection took %.1fs", time.time() - t0)

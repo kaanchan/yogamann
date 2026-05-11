@@ -13,14 +13,13 @@ import time
 from typing import List, Tuple
 
 from PIL import Image, PngImagePlugin
-from controlnet_aux import DWposeDetector
+from dwpose_onnx import DWposeDetector
 
 log = logging.getLogger(__name__)
 
 __all__ = ["make_controlnet_mask", "save_keypoints"]
 
 CANVAS_SIZE  = 768
-DETECTOR_ID  = "lllyasviel/Annotators"
 
 _DETECTOR: DWposeDetector | None = None
 
@@ -28,8 +27,8 @@ _DETECTOR: DWposeDetector | None = None
 def _get_detector() -> DWposeDetector:
     global _DETECTOR
     if _DETECTOR is None:
-        log.info("Loading DWPose detector — %s", DETECTOR_ID)
-        _DETECTOR = DWposeDetector.from_pretrained(DETECTOR_ID)
+        log.info("Loading DWPose detector (downloading weights on first run)")
+        _DETECTOR = DWposeDetector()
         log.debug("DWPose detector ready")
     return _DETECTOR
 
