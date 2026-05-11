@@ -1,9 +1,9 @@
-# On this Windows setup, use run.ps1 instead:
-#   .\run.ps1 test        single image + open gallery
-#   .\run.ps1 test-all    all input images + open gallery
-#   .\run.ps1 diag        hardware + import diagnostics
-#   .\run.ps1 gallery     regenerate HTML gallery + open browser
-#   .\run.ps1 open        open existing gallery
+# On this Windows setup, use make.ps1 instead:
+#   .\make.ps1 test        single image + open gallery
+#   .\make.ps1 test-all    all input images + open gallery
+#   .\make.ps1 diag        hardware + import diagnostics
+#   .\make.ps1 gallery     regenerate HTML gallery + open browser
+#   .\make.ps1 open        open existing gallery
 #
 # If make is available (WSL / Linux):
 PYTHON  := .venv/Scripts/python.exe
