@@ -7,12 +7,15 @@ extract_pose.py -- detect a full-body pose and export:
 Uses DWposeDetector from controlnet_aux (ONNX-based, no mediapipe).
 """
 import json
+import logging
 import os
 import time
 from typing import List, Tuple
 
 from PIL import Image, PngImagePlugin
 from controlnet_aux import DWposeDetector
+
+log = logging.getLogger(__name__)
 
 __all__ = ["make_controlnet_mask", "save_keypoints"]
 
@@ -25,7 +28,9 @@ _DETECTOR: DWposeDetector | None = None
 def _get_detector() -> DWposeDetector:
     global _DETECTOR
     if _DETECTOR is None:
+        log.info("Loading DWPose detector — %s", DETECTOR_ID)
         _DETECTOR = DWposeDetector.from_pretrained(DETECTOR_ID)
+        log.debug("DWPose detector ready")
     return _DETECTOR
 
 
@@ -38,6 +43,7 @@ def make_controlnet_mask(img_path: str,
     Raises RuntimeError if detection fails.
     """
     detector = _get_detector()
+    log.debug("Running DWPose on %s", os.path.basename(img_path))
     img = Image.open(img_path).convert("RGB")
     skeleton = detector(img)
     if skeleton is None:

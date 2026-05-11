@@ -4,11 +4,13 @@ make_mannequin.py – batch planner / driver
 """
 
 from __future__ import annotations
-import argparse, json, os, random, re, subprocess, sys
+import argparse, json, logging, os, random, re, subprocess, sys
 import pathlib, warnings
 from typing import Dict, List
 
-import yaml                         # <-- needed for YAML profiles
+import yaml
+
+log = logging.getLogger(__name__)
 
 warnings.filterwarnings(
     "ignore",
@@ -134,7 +136,18 @@ cli.add_argument("--folder", help="process every image in this folder")
 cli.add_argument("--profile", help="profile name / path")
 cli.add_argument("--dump-worklist")
 cli.add_argument("--dump-only", action="store_true")
+cli.add_argument("--log-level", default=os.environ.get("YOGAMANN_LOG_LEVEL", "INFO"),
+                 choices=["DEBUG", "INFO", "WARNING", "ERROR"],
+                 help="logging verbosity (default: INFO)")
 args, kv_overrides = cli.parse_known_args()
+
+logging.basicConfig(
+    level=getattr(logging, args.log_level),
+    format="%(asctime)s %(levelname)-8s %(name)s — %(message)s",
+    datefmt="%H:%M:%S",
+)
+# propagate level to subprocesses via env
+os.environ["YOGAMANN_LOG_LEVEL"] = args.log_level
 
 # parse key=value overrides --------------------------------------------------
 overrides = {}
@@ -169,8 +182,11 @@ if args.dump_worklist:
         sys.exit(0)
 
 # execute sequentially -------------------------------------------------------
+log.info("Processing %d task(s) — profile: %s", len(worklist),
+         args.profile or "default")
 for t in worklist:
-    print(f"\n=== {pathlib.Path(t['photo']).name}{t['cfg']['version_tag']} ===")
+    label = f"{pathlib.Path(t['photo']).name}{t['cfg']['version_tag']}"
+    log.info("Starting task: %s", label)
     subprocess.run(
         [sys.executable, str(SRC_DIR / "sd_make.py"), "--from-worklist", "-"],
         input=json.dumps([t]),
@@ -178,3 +194,4 @@ for t in worklist:
         check=True,
         env={**os.environ, "PYTHONUTF8": "1"},
     )
+    log.info("Task complete: %s", label)
