@@ -122,7 +122,7 @@ def build_tasks(photo: pathlib.Path, cfg: Dict) -> List[Dict]:
         tasks.append({
             "photo"     : str(photo),
             "mask_png"  : str(mask),
-            "OUTPUT_DIR_png": str(out_p),
+            "output_png"    : str(out_p),
             "cfg"       : cfg_i
         })
     return tasks

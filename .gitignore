@@ -12,6 +12,10 @@ BACKUPS/
 # Generated output images (too large for git)
 output/
 
+# Claude Code agent tmp staging (gitignored; pm/ is tracked)
+.claude/tmp/*
+!.claude/tmp/.gitkeep
+
 # OS
 .DS_Store
 Thumbs.db
