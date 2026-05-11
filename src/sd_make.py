@@ -7,7 +7,6 @@ sd_make.py -- worker (single task or work-list)
 
 from __future__ import annotations
 import argparse, json, logging, os, sys, time, warnings
-from math import ceil
 from pathlib import Path
 from typing import Dict, List
 
@@ -28,7 +27,7 @@ logging.basicConfig(
     datefmt="%H:%M:%S",
 )
 log = logging.getLogger(__name__)
-from PIL import Image, PngImagePlugin
+from PIL import Image, ImageOps, PngImagePlugin
 from diffusers import (
     StableDiffusionXLControlNetPipeline,
     ControlNetModel,
@@ -87,10 +86,13 @@ def render(task: Dict, device: str, pipe) -> None:
     # ------------------------------------------------------------------
     # 1. CONTROLNET MASK  (DWPose)
     # ------------------------------------------------------------------
+    # Open once; exif_transpose corrects rotation stored in EXIF (common in phone photos)
+    src_img = ImageOps.exif_transpose(Image.open(task["photo"])).convert("RGB")
+
     log.info("Detecting pose — %s", photo.name)
     t_pose = time.time()
     detector = DWposeDetector()
-    control_img = detector(Image.open(task["photo"]).convert("RGB"))
+    control_img = detector(src_img)
     control_img.save(task["mask_png"])
     pose_s = time.time() - t_pose
     log.debug("Pose detection took %.1fs", pose_s)
@@ -115,13 +117,16 @@ def render(task: Dict, device: str, pipe) -> None:
         gen.manual_seed(int(cfg["seed"]))
     actual_seed = gen.initial_seed()
 
-    img = Image.open(task["photo"])
-    w, h = img.size
-    w64 = max(1024, ceil(w / 64) * 64)
-    h64 = max(1024, ceil(h / 64) * 64)
+    w, h = src_img.size
+    # Scale down so the long side ≤ 1024 (SDXL native), then snap to nearest 64.
+    # max() keeps tiny inputs at a usable minimum.
+    _MAX_DIM = 1024
+    _scale = min(1.0, _MAX_DIM / max(w, h))
+    w64 = max(64, round(w * _scale / 64) * 64)
+    h64 = max(64, round(h * _scale / 64) * 64)
 
-    log.info("Generating image — %dx%d  steps=%d  seed=%d  (compile warmup on first run)",
-             w64, h64, steps, actual_seed)
+    log.info("Generating image — src %dx%d → %dx%d  steps=%d  seed=%d  (compile warmup on first run)",
+             w, h, w64, h64, steps, actual_seed)
     log.debug("VRAM before generation: %s", _vram())
     t_gen = time.time()
 
