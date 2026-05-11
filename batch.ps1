@@ -15,7 +15,8 @@ param(
     [string]$PipelineProfile = "yoga_asana",
     [string]$LogLevel = "INFO",
     [int]$Limit = 0,     # max images to process this run (0 = unlimited)
-    [switch]$DryRun
+    [switch]$DryRun,
+    [switch]$Monitor     # spawn monitor.ps1 in a new terminal window
 )
 
 $Python   = ".\.venv\Scripts\python.exe"
@@ -35,6 +36,21 @@ Write-Host "Source     : $ResolvedSource" -ForegroundColor White
 Write-Host "SourceRoot : $SourceRoot"     -ForegroundColor DarkGray
 Write-Host "OutputRoot : $OutputRoot"     -ForegroundColor DarkGray
 if ($DryRun) { Write-Host "[DRY RUN — no images will be generated]" -ForegroundColor Yellow }
+
+# ── Optional monitor window ────────────────────────────────────────────────────
+if ($Monitor) {
+    $monitorScript = Join-Path $PSScriptRoot "monitor.ps1"
+    if (-not (Test-Path $monitorScript)) {
+        Write-Host "[monitor] Script not found at $monitorScript — skipping" -ForegroundColor Yellow
+    } else {
+        try {
+            Start-Process pwsh -ArgumentList "-NoExit", "-File", $monitorScript -ErrorAction Stop
+            Write-Host "[monitor] Launched in new terminal" -ForegroundColor DarkCyan
+        } catch {
+            Write-Host "[monitor] Failed to launch: $_" -ForegroundColor Yellow
+        }
+    }
+}
 
 # ── PID tracking for clean abort ───────────────────────────────────────────────
 $script:ActiveProcId = $null

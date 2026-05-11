@@ -1,5 +1,20 @@
 # PROGRESS
 
+## 2026-05-11 — BSOD fix, EXIF orientation, batch/monitor improvements
+
+- **#20 closed** — BSOD (kernel panic 0x00020001) from phone photos (5184×3888) generating at full native resolution. Fixed in `sd_make.py`: scale down so long side ≤ 1024, snap to nearest 64.
+- **#22 closed** — EXIF orientation: phone photos processed rotated. Fixed with `ImageOps.exif_transpose()` on first open; single PIL object reused for pose detection and dimension reads.
+- **batch.ps1** — Added `-Monitor` switch (spawns `monitor.ps1` in new terminal window).
+- **monitor.ps1** — Added GPU active-time tracker with dip-tolerance, per-process yogamann CPU/RAM rows, wall-clock timers.
+- **Issues opened** — #21 (Streamlit gallery + feedback), #23 (skip-existing flag).
+
+## 2026-05-11 — Batch pipeline + warning suppressions
+
+- Closed #20: batch.ps1 (tree walker, DryRun, output dir exclusion, D:\Temp\yogamann-output default)
+- make_mannequin.py: --output-dir, single-subprocess worklist (one CUDA warm-up per folder)
+- sd_make.py: 6 warning suppressions; onnxruntime severity=3 in dwpose_onnx.py
+- Commit: d4a828d
+
 <!-- newest session at top — append-only, never rewrite -->n## 2026-05-11 — HF offline + metrics JSONn- Closed #13: HF_HUB_OFFLINE=1 in make.ps1 test/test-all; .metrics.json sidecar per run (seed, timing phases, rating/notes stub)n- Commit: 1cd431f
 
 ## 2026-05-11 — First working end-to-end pipeline run (#7)
