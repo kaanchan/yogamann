@@ -27,14 +27,37 @@ $env:HF_HUB_OFFLINE     = "1"
 $ResolvedSource = (Resolve-Path $Source -ErrorAction Stop).Path.TrimEnd('\', '/')
 $SourceRoot     = $SourceRoot.TrimEnd('\', '/')
 $OutputRoot     = $OutputRoot.TrimEnd('\', '/')
-
-$isFile = Test-Path $ResolvedSource -PathType Leaf
+$isFile         = Test-Path $ResolvedSource -PathType Leaf
 
 Write-Host ""
 Write-Host "Source     : $ResolvedSource" -ForegroundColor White
 Write-Host "SourceRoot : $SourceRoot"     -ForegroundColor DarkGray
 Write-Host "OutputRoot : $OutputRoot"     -ForegroundColor DarkGray
 if ($DryRun) { Write-Host "[DRY RUN — no images will be generated]" -ForegroundColor Yellow }
+
+# ── PID tracking for clean abort ───────────────────────────────────────────────
+$script:ActiveProcId = $null
+
+function Invoke-Cleanup {
+    if (-not $script:ActiveProcId) { return }
+    Write-Host ""
+    Write-Host "── Aborting — killing subprocess tree (PID $script:ActiveProcId) ──" -ForegroundColor Red
+    taskkill /F /T /PID $script:ActiveProcId 2>$null | Out-Null
+    $script:ActiveProcId = $null
+
+    # Poll until VRAM drains or 15s timeout
+    Write-Host "   Waiting for VRAM to release..." -ForegroundColor Yellow -NoNewline
+    $deadline = (Get-Date).AddSeconds(15)
+    while ((Get-Date) -lt $deadline) {
+        Start-Sleep -Milliseconds 500
+        $free = (nvidia-smi --query-gpu=memory.free --format=csv,noheader,nounits 2>$null).Trim()
+        if ([int]$free -gt 10000) { break }  # >10 GB free = model unloaded
+        Write-Host "." -NoNewline -ForegroundColor Yellow
+    }
+    $vram = (nvidia-smi --query-gpu=memory.free,memory.used --format=csv,noheader,nounits 2>$null) -split ","
+    Write-Host ""
+    Write-Host "   VRAM free: $($vram[0].Trim()) MiB  used: $($vram[1].Trim()) MiB" -ForegroundColor Cyan
+}
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
 function Get-OutputDir([string]$absInputDir) {
@@ -43,13 +66,24 @@ function Get-OutputDir([string]$absInputDir) {
         if ($rel) { return "$OutputRoot\$rel" }
         return $OutputRoot
     }
-    # Input is outside SourceRoot — map by leaf name
     return "$OutputRoot\$([System.IO.Path]::GetFileName($absInputDir))"
 }
 
 function Get-ImageFiles([string]$dir) {
     return Get-ChildItem -LiteralPath $dir -File |
         Where-Object { $ImageExt -contains $_.Extension.ToLower() }
+}
+
+function Invoke-Python([string[]]$pyArgs) {
+    $proc = Start-Process `
+        -FilePath $Python `
+        -ArgumentList $pyArgs `
+        -NoNewWindow `
+        -PassThru
+    $script:ActiveProcId = $proc.Id
+    $proc.WaitForExit()
+    $script:ActiveProcId = $null
+    return $proc.ExitCode
 }
 
 function Invoke-DirBatch([string]$dir) {
@@ -68,64 +102,66 @@ function Invoke-DirBatch([string]$dir) {
     if ($DryRun) { return }
 
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-    $pyArgs = @(
+    $exitCode = Invoke-Python @(
         "src/make_mannequin.py",
         "--folder", $dir,
         "--output-dir", $outDir,
         "--profile", $PipelineProfile,
         "--log-level", $LogLevel
     )
-    & $Python @pyArgs
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-Host "[FAILED] $dir (exit $LASTEXITCODE)" -ForegroundColor Red
+    if ($exitCode -ne 0) {
+        Write-Host "[FAILED] $dir (exit $exitCode)" -ForegroundColor Red
     }
 }
 
-# ── Main ───────────────────────────────────────────────────────────────────────
-if ($isFile) {
-    $dir    = [System.IO.Path]::GetDirectoryName($ResolvedSource)
-    $outDir = Get-OutputDir $dir
+# ── Main (wrapped in try/finally for clean Ctrl+C) ─────────────────────────────
+try {
+    if ($isFile) {
+        $dir    = [System.IO.Path]::GetDirectoryName($ResolvedSource)
+        $outDir = Get-OutputDir $dir
 
-    Write-Host ""
-    Write-Host "==> Single file: $ResolvedSource" -ForegroundColor Cyan
-    Write-Host "    -> $outDir"                   -ForegroundColor DarkCyan
+        Write-Host ""
+        Write-Host "==> Single file: $ResolvedSource" -ForegroundColor Cyan
+        Write-Host "    -> $outDir"                   -ForegroundColor DarkCyan
 
-    if (-not $DryRun) {
-        New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-        $pyArgs = @(
-            "src/make_mannequin.py",
-            $ResolvedSource,
-            "--output-dir", $outDir,
-            "--profile", $PipelineProfile,
-            "--log-level", $LogLevel
-        )
-        & $Python @pyArgs
-    }
-
-} else {
-    $dirs = @($ResolvedSource) + @(
-        Get-ChildItem -LiteralPath $ResolvedSource -Recurse -Directory |
-            Where-Object { $_.FullName -notlike "$OutputRoot*" -and $_.Name -notlike "yogamann-output*" } |
-            Select-Object -ExpandProperty FullName
-    )
-
-    $processed = 0; $skipped = 0; $totalImages = 0
-
-    foreach ($d in $dirs) {
-        $imgs = Get-ImageFiles $d
-        if ($imgs) {
-            Invoke-DirBatch $d
-            $processed++
-            $totalImages += $imgs.Count
-        } else {
-            $skipped++
+        if (-not $DryRun) {
+            New-Item -ItemType Directory -Path $outDir -Force | Out-Null
+            Invoke-Python @(
+                "src/make_mannequin.py",
+                $ResolvedSource,
+                "--output-dir", $outDir,
+                "--profile", $PipelineProfile,
+                "--log-level", $LogLevel
+            ) | Out-Null
         }
+
+    } else {
+        $dirs = @($ResolvedSource) + @(
+            Get-ChildItem -LiteralPath $ResolvedSource -Recurse -Directory |
+                Where-Object { $_.FullName -notlike "$OutputRoot*" -and $_.Name -notlike "yogamann-output*" } |
+                Select-Object -ExpandProperty FullName
+        )
+
+        $processed = 0; $skipped = 0; $totalImages = 0
+
+        foreach ($d in $dirs) {
+            $imgs = Get-ImageFiles $d
+            if ($imgs) {
+                Invoke-DirBatch $d
+                $processed++
+                $totalImages += $imgs.Count
+            } else {
+                $skipped++
+            }
+        }
+
+        Write-Host ""
+        Write-Host "── Batch complete ──────────────────────────────" -ForegroundColor Green
+        Write-Host "   Dirs with images : $processed"
+        Write-Host "   Total images     : $totalImages"
+        Write-Host "   Dirs skipped     : $skipped (no images)"
     }
 
-    Write-Host ""
-    Write-Host "── Batch complete ──────────────────────────────" -ForegroundColor Green
-    Write-Host "   Dirs with images : $processed"
-    Write-Host "   Total images     : $totalImages"
-    Write-Host "   Dirs skipped     : $skipped (no images)"
+} finally {
+    Invoke-Cleanup
 }
