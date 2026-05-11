@@ -20,18 +20,18 @@
 - Each change gets its own commit referencing its issue number
 - User tests between fix and gallery addition
 
-## Sub-tasks
+## Sub-tasks — ALL COMPLETE
 
 - [x] Set up `.claude/pm/` and `.claude/tmp/` directories
 - [x] Add `.claude/tmp/*` to `.gitignore`
 - [x] Create GH issues #2, #3, #4
 - [x] Write PENDING-TASK.md
-- [ ] Fix `OUTPUT_DIR_png` → `output_png` in `src/make_mannequin.py` line 126 — closes #2
-- [ ] Add `src/make_gallery.py` — closes #3
-- [ ] Update `README.md` — closes #4
-- [ ] Commit each change with issue reference
-- [ ] Push to remote (main/master)
-- [ ] Write PROGRESS.md entry
+- [x] Fix `OUTPUT_DIR_png` → `output_png` in `src/make_mannequin.py` line 126 — closes #2
+- [x] Add `src/make_gallery.py` — closes #3
+- [x] Update `README.md` — closes #4
+- [x] Commit each change with issue reference
+- [x] Push to remote (master)
+- [x] Write PROGRESS.md entry
 
 ## Constraints / decisions
 
