@@ -75,9 +75,13 @@ function Get-ImageFiles([string]$dir) {
 }
 
 function Invoke-Python([string[]]$pyArgs) {
+    # Quote args that contain spaces so Start-Process doesn't split them
+    $argStr = ($pyArgs | ForEach-Object {
+        if ($_ -match ' ') { "`"$_`"" } else { $_ }
+    }) -join ' '
     $proc = Start-Process `
         -FilePath $Python `
-        -ArgumentList $pyArgs `
+        -ArgumentList $argStr `
         -NoNewWindow `
         -PassThru
     $script:ActiveProcId = $proc.Id
