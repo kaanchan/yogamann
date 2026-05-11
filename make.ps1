@@ -5,7 +5,7 @@ param(
 
 $Python  = ".\.venv\Scripts\python.exe"
 $Sample  = "input\yoga-pose-sample-4.jpg"
-$Profile = "yoga_asana"
+$PipelineProfile = "yoga_asana"
 $env:YOGAMANN_LOG_LEVEL = $LogLevel
 
 function Invoke-Step {
@@ -29,14 +29,14 @@ $Models = @(
 switch ($Target) {
     "test" {
         Invoke-Step "Generate mannequin: $Sample" {
-            & $Python src/make_mannequin.py $Sample --profile $Profile --log-level $LogLevel
+            & $Python src/make_mannequin.py $Sample --profile $PipelineProfile --log-level $LogLevel
         }
         Invoke-Step "Build gallery" { & $Python src/make_gallery.py }
         Start-Process "out\index.html"
     }
     "test-all" {
         Invoke-Step "Generate mannequins: all input images" {
-            & $Python src/make_mannequin.py --folder input --profile $Profile --log-level $LogLevel
+            & $Python src/make_mannequin.py --folder input --profile $PipelineProfile --log-level $LogLevel
         }
         Invoke-Step "Build gallery" { & $Python src/make_gallery.py }
         Start-Process "out\index.html"
@@ -61,7 +61,7 @@ switch ($Target) {
         }
         foreach ($model in $Models) {
             Invoke-Step "Download $model" {
-                & $Python -m huggingface_hub.cli download $model
+                & .\.venv\Scripts\huggingface-cli.exe download $model
             }
         }
         Write-Host "`nAll models cached. Run .\make.ps1 to generate." -ForegroundColor Green
