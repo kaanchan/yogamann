@@ -40,6 +40,10 @@ def build_pipe(device: str):
     # PyTorch 2.6+ SDPA (Flash Attention 3 on Blackwell) is used automatically.
     pipe.safety_checker = None
     pipe.requires_safety_checker = False
+    # Blackwell kernel fusion: compiles the UNet after the first forward pass.
+    # fullgraph=False tolerates diffusers' graph breaks (dynamic shapes, Python control flow).
+    # First generation call triggers compilation (~2-5 min); subsequent calls are fast.
+    pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
     return pipe
 
 

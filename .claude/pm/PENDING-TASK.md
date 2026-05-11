@@ -1,5 +1,47 @@
 # PENDING TASK
 
+**Branch:** master
+**Last commit:** 2754d75
+**Session date:** 2026-05-11
+
+## GH Issues being addressed
+
+| # | Title |
+|---|-------|
+| [#8](https://github.com/kaanchan/yogamann/issues/8) | Fix FP8 benchmark: use torch._scaled_mm not torch.matmul |
+| [#9](https://github.com/kaanchan/yogamann/issues/9) | Add torch.compile to SDXL pipeline for Blackwell kernel fusion |
+| [#10](https://github.com/kaanchan/yogamann/issues/10) | Install torchao + add NVFP4 benchmark and optional UNet weight quantization |
+
+## Sub-tasks
+
+- [ ] Fix `src/diagnostics/rtx5080-test.py` — FP8 path: `torch._scaled_mm` (#8)
+- [ ] Fix `C:\Users\kaanchan\Projects\System-tools\pytorch\rtx5080-test.py` — same fix (#8)
+- [ ] Fix `System-tools/pytorch/pyproject.toml` — add `environments = ["sys_platform == 'win32'"]` (#8)
+- [ ] Add `torch.compile(pipe.unet, ...)` in `sd_make.py` `build_pipe()` (#9)
+- [ ] Add compile-mode note in diagnostics import check section (#9)
+- [ ] Run diagnostics + single image test — user confirms (#8+#9)
+- [ ] Commit #8+#9, push, close issues
+- [ ] Check torchao nightly for cu130 Windows wheel (#10)
+- [ ] Install torchao, add real NVFP4 benchmark (#10)
+- [ ] Commit #10, push, close issue
+
+## Agreed approach
+
+- FP8 fix: use `torch._scaled_mm(a, b, scale_a=scale, scale_b=scale, out_dtype=torch.bfloat16)` — single scalar scale tensor per operand
+- torch.compile: `torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)` — tolerates diffusers graph breaks
+- Apply changes to BOTH rtx5080-test.py copies (yogamann + System-tools/pytorch) in sync
+- Issue order: #8 → #9 → #10
+
+## Constraints / decisions
+
+- `uv pip install` for any new deps (not `uv add`) to avoid re-triggering resolver
+- torch.compile warmup latency ~2-5 min on first call — expected, not a bug
+- #10 (torchao) blocked on confirming cu130 Windows wheel availability; source build as fallback
+
+---
+<!-- previous sessions below -->
+
+
 **Branch:** master  
 **Last commit:** f2a3891  
 **Session date:** 2026-05-11

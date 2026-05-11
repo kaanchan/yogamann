@@ -15,10 +15,18 @@ def run_benchmark(precision_name, dtype, size=10000, iterations=50):
         if dtype is None:
             raise AttributeError("Dtype not available in this build.")
 
-        # Blackwell Fix: randn doesn't support 8-bit, so we create and convert
-        if "float8" in str(dtype):
-            a = torch.randn(size, size, device='cuda', dtype=torch.float16).to(dtype)
-            b = torch.randn(size, size, device='cuda', dtype=torch.float16).to(dtype)
+        is_fp8 = "float8" in str(dtype)
+        if is_fp8:
+            # FP8 requires _scaled_mm — plain matmul rejects these types by design.
+            # cuBLAS FP8 GEMM requires a = row-major [M,K], b = column-major [K,N].
+            # b.T (the view) has stride=[1,N] — column-major — without making a copy.
+            # b.t().contiguous() would create a NEW row-major tensor (wrong layout).
+            # E5M2×E5M2 is not a valid cuBLAS config; use E4M3FN for both operands.
+            fp8_size = min(size, 4096)  # large FP8 GEMM may exceed cuBLAS heuristic range
+            fp8_dtype = torch.float8_e4m3fn
+            a = torch.randn(fp8_size, fp8_size, device='cuda', dtype=torch.float16).to(fp8_dtype)
+            b = torch.randn(fp8_size, fp8_size, device='cuda', dtype=torch.float16).to(fp8_dtype).T
+            scale = torch.tensor(1.0, device='cuda')
         else:
             a = torch.randn(size, size, device='cuda', dtype=dtype)
             b = torch.randn(size, size, device='cuda', dtype=dtype)
@@ -26,7 +34,11 @@ def run_benchmark(precision_name, dtype, size=10000, iterations=50):
         torch.cuda.synchronize()
         start_time = time.time()
         for _ in range(iterations):
-            _ = torch.matmul(a, b)
+            if is_fp8:
+                _ = torch._scaled_mm(a, b, scale_a=scale, scale_b=scale,
+                                     out_dtype=torch.bfloat16)
+            else:
+                _ = torch.matmul(a, b)
 
         torch.cuda.synchronize()
         end_time = time.time()
@@ -34,6 +46,8 @@ def run_benchmark(precision_name, dtype, size=10000, iterations=50):
         print(f"  SUCCESS: {iterations} iterations in {end_time - start_time:.4f}s")
         print(f"  Avg: {(end_time - start_time) / iterations:.6f}s")
 
+    except AttributeError as e:
+        print(f"  SKIPPED: {precision_name} ({e})")
     except Exception as e:
         print(f"  NOT WORKING: {precision_name} failed.")
         print(f"  Reason: {str(e)[:100]}")
@@ -61,9 +75,11 @@ def main():
     run_benchmark("FP16 (Half)", torch.float16, size=N)
     run_benchmark("BF16 (BFloat16)", torch.bfloat16, size=N)
 
-    # Blackwell 8-bit (FP8)
-    run_benchmark("FP8 (E4M3FN)", getattr(torch, 'float8_e4m3fn', None), size=N)
-    run_benchmark("FP8 (E5M2)", getattr(torch, 'float8_e5m2', None), size=N)
+    # Blackwell 8-bit (FP8) — capped at 4096² (cuBLAS heuristic limit); BF16/FP16 run at 10k²
+    # E4M3FN x E4M3FN: standard FP8 GEMM path
+    run_benchmark("FP8 (E4M3FN x E4M3FN, 4096²)", getattr(torch, 'float8_e4m3fn', None), size=N)
+    # E5M2 x E5M2 is NOT a valid cuBLAS config (only E4M3FN x E4M3FN or mixed E4M3FN/E5M2)
+    run_benchmark("FP8 (E5M2 x E5M2 — not a valid cuBLAS config)", None, size=N)
 
     # Blackwell 4-bit (NVFP4) Reporting
     print("\n[Testing NVFP4 (4-bit)]...")
@@ -109,7 +125,11 @@ def check_yogamann_imports():
 
     print()
     if all_ok:
+        compile_available = hasattr(torch, 'compile')
+        compile_note = "torch.compile available -- UNet will be compiled on first run (~2-5 min warmup)" \
+                       if compile_available else "torch.compile NOT available -- running in eager mode"
         print("All yogamann imports OK -- pipeline ready.")
+        print(f"Compile: {compile_note}")
     else:
         print("Some imports failed. Run 'uv sync' to install missing packages.")
 
