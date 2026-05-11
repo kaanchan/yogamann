@@ -1,12 +1,20 @@
 # yogamann
 Image to mannequin generator — converts yoga pose photos into wooden artist mannequin renders using ControlNet + Stable Diffusion.
 
-## Quick start
+## Setup
+
+Requires Python 3.11+ and an NVIDIA GPU with driver ≥ 572 (RTX 40/50 series).
+PyTorch wheels bundle CUDA 12.8 — your system CUDA version doesn't matter.
 
 ```bash
-conda activate yogamann          # or your env name
-cd yogamann
+python -m venv .venv
+.venv\Scripts\activate        # Windows
+pip install -r requirements.txt
 ```
+
+First run will download ~5 GB of model weights from Hugging Face (cached in `~/.cache/huggingface/`).
+
+## Quick start
 
 ## Single image
 

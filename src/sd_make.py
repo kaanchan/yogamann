@@ -50,7 +50,8 @@ def build_pipe(device: str):
         pipe.scheduler.config
     )
     pipe = pipe.to(device)
-    pipe.enable_xformers_memory_efficient_attention()
+    # PyTorch 2.6+ uses built-in SDPA (Flash Attention) automatically — faster than
+    # xformers on Blackwell and requires no separate install.
     pipe.safety_checker = None
     pipe.requires_safety_checker = False
     return pipe
