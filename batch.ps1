@@ -14,6 +14,7 @@ param(
 
     [string]$PipelineProfile = "yoga_asana",
     [string]$LogLevel = "INFO",
+    [int]$Limit = 0,     # max images to process this run (0 = unlimited)
     [switch]$DryRun
 )
 
@@ -90,10 +91,7 @@ function Invoke-Python([string[]]$pyArgs) {
     return $proc.ExitCode
 }
 
-function Invoke-DirBatch([string]$dir) {
-    $images = Get-ImageFiles $dir
-    if (-not $images) { return }
-
+function Invoke-DirBatch([string]$dir, [System.IO.FileInfo[]]$images) {
     $outDir = Get-OutputDir $dir
 
     Write-Host ""
@@ -106,13 +104,17 @@ function Invoke-DirBatch([string]$dir) {
     if ($DryRun) { return }
 
     New-Item -ItemType Directory -Path $outDir -Force | Out-Null
-    $exitCode = Invoke-Python @(
-        "src/make_mannequin.py",
-        "--folder", $dir,
-        "--output-dir", $outDir,
-        "--profile", $PipelineProfile,
-        "--log-level", $LogLevel
-    )
+
+    # Pass individual files when a subset is selected; use --folder for the full set
+    if ((Get-ImageFiles $dir).Count -eq $images.Count) {
+        $pyArgs = @("src/make_mannequin.py", "--folder", $dir,
+                    "--output-dir", $outDir, "--profile", $PipelineProfile, "--log-level", $LogLevel)
+    } else {
+        $pyArgs = @("src/make_mannequin.py") + ($images | ForEach-Object { $_.FullName }) +
+                  @("--output-dir", $outDir, "--profile", $PipelineProfile, "--log-level", $LogLevel)
+    }
+
+    $exitCode = Invoke-Python $pyArgs
     if ($exitCode -ne 0) {
         Write-Host "[FAILED] $dir (exit $exitCode)" -ForegroundColor Red
     }
@@ -147,22 +149,30 @@ try {
         )
 
         $processed = 0; $skipped = 0; $totalImages = 0
+        $remaining = $Limit   # 0 = unlimited
 
         foreach ($d in $dirs) {
+            if ($Limit -gt 0 -and $remaining -le 0) { break }
+
             $imgs = Get-ImageFiles $d
-            if ($imgs) {
-                Invoke-DirBatch $d
-                $processed++
-                $totalImages += $imgs.Count
-            } else {
-                $skipped++
-            }
+            if (-not $imgs) { $skipped++; continue }
+
+            # Trim to remaining budget if needed
+            $batch = if ($Limit -gt 0 -and $imgs.Count -gt $remaining) {
+                $imgs | Select-Object -First $remaining
+            } else { $imgs }
+
+            Invoke-DirBatch $d $batch
+            $processed++
+            $totalImages += $batch.Count
+            if ($Limit -gt 0) { $remaining -= $batch.Count }
         }
 
+        $limitNote = if ($Limit -gt 0) { "  (limit: $Limit)" } else { "" }
         Write-Host ""
         Write-Host "── Batch complete ──────────────────────────────" -ForegroundColor Green
         Write-Host "   Dirs with images : $processed"
-        Write-Host "   Total images     : $totalImages"
+        Write-Host "   Total images     : $totalImages$limitNote"
         Write-Host "   Dirs skipped     : $skipped (no images)"
     }
 
