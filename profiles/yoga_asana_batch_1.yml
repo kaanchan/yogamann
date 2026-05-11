@@ -1,23 +1,18 @@
-# Profile: yoga_random
-profile_version: 1.0
+# Profile: yoga_asana_batch_1 -- random sweep for SDXL
+profile_version: 2.0
 
-# Global controls
-versions: 2          # generate five variants of EACH input photo
-random: true         # draw every ranged value uniformly for each version
+versions: 2
+random: true
 
-# Prompt knobs
 prompt: |
   wooden artist mannequin, advanced yoga asana,
-  studio lighting, detailed ash wood grain, no props
+  studio lighting, detailed ash wood grain, jointed limbs, no props,
+  sharp focus, photorealistic
 neg_prompt: |
   blocks, chair, foam mat, extra limbs, disassembly, merged limbs,
-  neon, psychedelic, posterized, high saturation
+  neon, psychedelic, posterized, high saturation, blurry, low quality
 
-# Numeric parameters
-steps      : [25, 45]    # any int between 25 – 45
-cond_scale : [1.0, 1.4]  # ControlNet strength
-guidance   : 6.5         # single value → repeated
-seed       : [0, 99999]  # random seed each run (useful for diversity)
-
-# Renderer / model tweaks (place‑holders; see discussion below)
-base_model: runwayml/stable-diffusion-v1-5
+steps      : [20, 30]      # SDXL converges faster than SD 1.5
+cond_scale : [0.8, 1.2]    # DWPose ControlNet strength
+guidance   : [4.5, 6.5]    # SDXL sweet spot
+seed       : [0, 99999]

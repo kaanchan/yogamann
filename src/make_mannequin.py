@@ -26,12 +26,12 @@ PROFILES_DIR = ROOT / "profiles"
 DEFAULT_PROFILE: Dict = {
     "versions"   : 1,
     "random"     : False,
-    "steps"      : 40,
+    "steps"      : 25,
     "cond_scale" : 1.0,
-    "guidance"   : 7.5,
+    "guidance"   : 5.0,
     "sheet_scale": 1.0,
     "seed"       : None,
-    "prompt"     : "wooden artist mannequin, neutral backdrop",
+    "prompt"     : "wooden artist mannequin, neutral backdrop, sharp focus",
     "neg_prompt" : None,
 }
 

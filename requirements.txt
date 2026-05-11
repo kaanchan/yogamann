@@ -1,36 +1,29 @@
-# yogamann — pip requirements (replaces conda environment.yml)
+# ── LEGACY FALLBACK ─────────────────────────────────────────────────────────
+# The canonical package spec is now pyproject.toml (uv-managed).
+# Use this file only if uv is unavailable:
 #
-# Setup:
-#   python -m venv .venv
-#   .venv\Scripts\activate          # Windows
 #   pip install -r requirements.txt
 #
-# Requires: Python 3.11+, NVIDIA driver >= 572 (RTX 5080 / Blackwell)
-# PyTorch cu128 wheels bundle their own CUDA runtime — system CUDA version irrelevant.
+# Preferred setup:
+#   uv sync          (reads pyproject.toml, installs torch from nightly cu130)
+# ─────────────────────────────────────────────────────────────────────────────
 
 --extra-index-url https://download.pytorch.org/whl/cu128
 
-# ── PyTorch (CUDA 12.8 wheels, full Blackwell support) ──────────────────
 torch>=2.6.0
 torchvision
-torchaudio
 
-# ── Diffusion pipeline ───────────────────────────────────────────────────
-diffusers==0.34.0
-transformers==4.41.*
+diffusers>=0.29.0
+transformers>=4.41
 safetensors>=0.3.1
 huggingface-hub>=0.33
 accelerate
 
-# ── Pose / ControlNet ────────────────────────────────────────────────────
 controlnet_aux>=0.0.8
-mediapipe==0.10.9
+onnxruntime-gpu
 
-# ── Image / vision utilities ─────────────────────────────────────────────
 opencv-python
 pillow
 timm
 numpy
-
-# ── Config / misc ────────────────────────────────────────────────────────
 pyyaml

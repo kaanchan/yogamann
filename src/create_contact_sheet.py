@@ -1,39 +1,24 @@
 """
-create_contact_sheet.py – utilities to build side‑by‑side images that let you
-quickly judge pose‑to‑mannequin accuracy.
+create_contact_sheet.py -- build side-by-side comparison images.
 
-Two layouts are supported:
-───────────────────────────────────────────────────────────────────────────────
-1. <stem>-comparison_2.png  (vertical stack)
-   ┌──────────┐
-   │ original │   scaled to `sheet_scale`
-   ├──────────┤
-   │ mannequin│   scaled to `sheet_scale`
-   └──────────┘
+Two layouts:
+  <stem>-comparison_2.png  vertical stack  (original / mannequin)
+  <stem>-comparison_4.png  2x2 grid        (original / dwpose / mannequin / depth)
 
-2. <stem>-comparison_4.png  (2 × 2 grid)
-   ┌────────────┬────────────┐
-   │ original   │ controlNet │   each tile scaled so the *whole* sheet width
-   ├────────────┼────────────┤   =      original_W × sheet_scale
-   │ mannequin  │ depth map  │
-   └────────────┴────────────┘
-
-Pass `sheet_scale` (float) at runtime – defaults to 1.0 (100 %).
-
-Dependencies: Pillow, controlnet_aux (for MiDaS depth)
+Depth estimation uses Depth Anything V2 Small via transformers.
+Pass `sheet_scale` (float) at runtime -- defaults to 1.0 (100%).
 """
 
 from __future__ import annotations
-import time, pathlib
-from PIL import Image, PngImagePlugin
-from controlnet_aux import MidasDetector
+import time
+from pathlib import Path
 
-# MiDaS depth model (lazy-loaded once)
-_DEPTH: MidasDetector | None = None
+from PIL import Image, PngImagePlugin
+
+_DEPTH_PIPE = None
 
 
 def _meta(seed: int | None) -> PngImagePlugin.PngInfo:
-    """PNG metadata helper."""
     meta = PngImagePlugin.PngInfo()
     meta.add_text("generated", time.strftime("%Y-%m-%d %H:%M:%S"))
     if seed is not None:
@@ -42,16 +27,20 @@ def _meta(seed: int | None) -> PngImagePlugin.PngInfo:
 
 
 def _depth(img: Image.Image) -> Image.Image:
-    global _DEPTH
-    if _DEPTH is None:
-        _DEPTH = MidasDetector.from_pretrained("lllyasviel/ControlNet")
-    return _DEPTH(img).convert("RGB")
+    global _DEPTH_PIPE
+    if _DEPTH_PIPE is None:
+        from transformers import pipeline as hf_pipeline
+        _DEPTH_PIPE = hf_pipeline(
+            "depth-estimation",
+            model="depth-anything/Depth-Anything-V2-Small-hf",
+        )
+    result = _DEPTH_PIPE(img)
+    return result["depth"].convert("RGB")
 
 
-# ────────────────────────── public API ──────────────────────────────────
 def build_comparison_2(orig: Image.Image,
                        mannequin: Image.Image,
-                       out_path: pathlib.Path,
+                       out_path: Path,
                        seed: int | None,
                        scale: float = 1.0) -> None:
     """Vertical stack at `scale`."""
@@ -66,10 +55,10 @@ def build_comparison_2(orig: Image.Image,
 def build_comparison_4(orig: Image.Image,
                        control: Image.Image,
                        mannequin: Image.Image,
-                       out_path: pathlib.Path,
+                       out_path: Path,
                        seed: int | None,
                        scale: float = 1.0) -> None:
-    """2×2 grid at `scale`."""
+    """2x2 grid at `scale`."""
     w, h = orig.size
     w4, h4 = round(w * scale / 2), round(h * scale / 2)
     o = orig.resize((w4, h4), Image.LANCZOS)

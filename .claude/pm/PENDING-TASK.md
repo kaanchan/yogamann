@@ -8,7 +8,21 @@
 
 | # | Title |
 |---|-------|
-| [#5](https://github.com/kaanchan/yogamann/issues/5) | Env: Replace conda environment.yml with pip requirements.txt for RTX 5080 / CUDA 12.8 |
+| [#7](https://github.com/kaanchan/yogamann/issues/7) | Modernise stack: SDXL + DWPose + Depth Anything V2 + Python 3.13 / cu130 nightly |
+
+## Sub-tasks
+
+- [x] Create GH issue #7
+- [x] Update PENDING-TASK.md
+- [ ] Create `pyproject.toml` (uv, Python 3.13, cu130 nightly)
+- [ ] Create `src/diagnostics/rtx5080-test.py`
+- [ ] Update `src/sd_make.py` (SDXL, DWPose, bfloat16, 1024px)
+- [ ] Update `src/extract_pose.py` (remove mediapipe, DWposeDetector)
+- [ ] Update `src/create_contact_sheet.py` (Depth Anything V2)
+- [ ] Update profiles (SDXL parameters)
+- [ ] Rebuild venv with `uv sync`, run diagnostics — user confirms
+- [ ] Single image test run — user confirms
+- [ ] Commit, push, close #7, write PROGRESS.md
 
 ## Agreed approach
 

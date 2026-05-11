@@ -1,11 +1,13 @@
-steps: 30
+steps: 25
 seed: null
-sheet_scale: 1.0      # contact sheets 100% of orig
-cond_scale: 1.0       # lock limbs tightly to mask
-guidance: 7.5         # let pose dominate over text
+sheet_scale: 1.0
+cond_scale: 1.0       # DWPose ControlNet conditioning strength
+guidance: 5.0         # SDXL runs lower CFG than SD 1.5
 prompt: |
-  wooden artist mannequin, detailed ash wood grain,
+  wooden artist mannequin, detailed ash wood grain, jointed limbs,
   performing advanced yoga asana, full articulation, no props,
-  studio lighting
+  studio lighting, sharp focus, 8k, photorealistic wood texture
 neg_prompt: |
-  blocks, chair, foam mat, extra limbs, disassembly, merged limbs, neon, psychedelic, posterized, high saturation
+  blocks, chair, foam mat, extra limbs, disassembly, merged limbs,
+  neon, psychedelic, posterized, high saturation, cartoon, painting,
+  blurry, low quality, watermark

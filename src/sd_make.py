@@ -1,8 +1,8 @@
 """
-sd_make.py – worker (single task or work‑list)
-· Swaps PNDM → DPMSolverMultistep
-· Safe on Windows diffusers 0.34
-· 2025‑07‑20:  ➜  writes ControlNet JSON & contact‑sheets
+sd_make.py -- worker (single task or work-list)
+· SDXL + ControlNet-OpenPose-SDXL (DWPose-trained)
+· PyTorch nightly cu130, bfloat16 (Blackwell native)
+· Closes #7
 """
 
 from __future__ import annotations
@@ -14,100 +14,82 @@ from typing import Dict, List
 import torch
 from PIL import Image, PngImagePlugin
 from diffusers import (
-    StableDiffusionControlNetPipeline,
+    StableDiffusionXLControlNetPipeline,
     ControlNetModel,
     DPMSolverMultistepScheduler,
 )
-from controlnet_aux import OpenposeDetector
+from controlnet_aux import DWposeDetector
 
-# new ───────────────────────────────────────────────────────────────────
 from extract_pose import make_controlnet_mask, save_keypoints
 from create_contact_sheet import build_comparison_2, build_comparison_4
-# ───────────────────────────────────────────────────────────────────────
 
-BASE_ID     = "runwayml/stable-diffusion-v1-5"
-CONTROL_ID  = "lllyasviel/sd-controlnet-openpose"
-DETECTOR_ID = "lllyasviel/ControlNet"
-
-# ── helper for schedulers that lack .to() (Windows wheels) ────────────
-def _move_sched_tensors(sched, device):
-    for k, v in list(sched.__dict__.items()):
-        if torch.is_tensor(v):
-            sched.__dict__[k] = v.to(device)
-        elif isinstance(v, list) and v and torch.is_tensor(v[0]):
-            sched.__dict__[k] = [t.to(device) for t in v]
+BASE_ID    = "stabilityai/stable-diffusion-xl-base-1.0"
+CONTROL_ID = "xinsir/controlnet-openpose-sdxl-1.0"
+DETECTOR_ID = "lllyasviel/Annotators"
 
 
-# ── build the pipeline once per worker process ────────────────────────
 def build_pipe(device: str):
-    cn = ControlNetModel.from_pretrained(CONTROL_ID, torch_dtype=torch.float16)
-    pipe = StableDiffusionControlNetPipeline.from_pretrained(
+    cn = ControlNetModel.from_pretrained(CONTROL_ID, torch_dtype=torch.bfloat16)
+    pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
         BASE_ID,
         controlnet=cn,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.bfloat16,
     )
-    pipe.scheduler = DPMSolverMultistepScheduler.from_config(
-        pipe.scheduler.config
-    )
+    pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
     pipe = pipe.to(device)
-    # PyTorch 2.6+ uses built-in SDPA (Flash Attention) automatically — faster than
-    # xformers on Blackwell and requires no separate install.
+    # PyTorch 2.6+ SDPA (Flash Attention 3 on Blackwell) is used automatically.
     pipe.safety_checker = None
     pipe.requires_safety_checker = False
     return pipe
 
 
-# ── render ONE task dict ───────────────────────────────────────────────
 def render(task: Dict, device: str, pipe) -> None:
-    cfg = task["cfg"]
-    steps = int(cfg.get("steps") or 50)
+    cfg   = task["cfg"]
+    steps = int(cfg.get("steps") or 25)
 
-    print(
-        f"[worker] -> {Path(task['output_png']).name} (steps={steps})",
-        flush=True,
-    )
+    print(f"[worker] -> {Path(task['output_png']).name} (steps={steps})", flush=True)
 
     # ------------------------------------------------------------------
-    # 1. CONTROLNET MASK  (OpenPose)
+    # 1. CONTROLNET MASK  (DWPose -- no mediapipe)
     # ------------------------------------------------------------------
-    control_img = OpenposeDetector.from_pretrained(DETECTOR_ID)(
-        Image.open(task["photo"])
-    )
+    detector = DWposeDetector.from_pretrained(DETECTOR_ID)
+    control_img = detector(Image.open(task["photo"]).convert("RGB"))
     control_img.save(task["mask_png"])
 
     # ------------------------------------------------------------------
-    # 2. OPTIONAL – Pose key‑points JSON via MediaPipe
+    # 2. OPTIONAL -- pose key-points JSON (best-effort)
     # ------------------------------------------------------------------
     json_path = Path(task["mask_png"]).with_suffix(".json")
     try:
-        tmp_png = json_path.with_suffix(".mediapipe.png")
+        tmp_png = json_path.with_suffix(".dwpose.png")
         pts = make_controlnet_mask(task["photo"], str(tmp_png))
         save_keypoints(pts, str(json_path), task["photo"])
-    except Exception as e:  # pose might fail on very wide crops
-        print(f"[warn] pose‑JSON skipped: {e}")
+    except Exception as e:
+        print(f"[warn] pose-JSON skipped: {e}")
 
     # ------------------------------------------------------------------
     # 3. DIFFUSION
     # ------------------------------------------------------------------
-    _move_sched_tensors(pipe.scheduler, "cpu")  # safety for NumPy ops
-
     gen = torch.Generator(device=device)
     if cfg.get("seed") is not None:
         gen.manual_seed(int(cfg["seed"]))
 
-    w, h = Image.open(task["photo"]).size
-    w8, h8 = max(512, ceil(w / 8) * 8), max(512, ceil(h / 8) * 8)
+    img = Image.open(task["photo"])
+    w, h = img.size
+    # SDXL native resolution is 1024; multiples of 64
+    w64 = max(1024, ceil(w / 64) * 64)
+    h64 = max(1024, ceil(h / 64) * 64)
 
     result = pipe(
         prompt=cfg["prompt"],
-        negative_prompt=cfg["neg_prompt"],
+        negative_prompt=cfg.get("neg_prompt"),
         image=control_img,
         num_inference_steps=steps,
         guidance_scale=cfg["guidance"],
         controlnet_conditioning_scale=cfg["cond_scale"],
         generator=gen,
-        width=w8,
-        height=h8,
+        width=w64,
+        height=h64,
     ).images[0]
 
     meta = PngImagePlugin.PngInfo()
@@ -120,35 +102,28 @@ def render(task: Dict, device: str, pipe) -> None:
     print("[OK]", Path(task["output_png"]).name)
 
     # ------------------------------------------------------------------
-    # 4. CONTACT‑SHEETS
+    # 4. CONTACT-SHEETS
     # ------------------------------------------------------------------
     try:
-        stem = Path(task["output_png"]).with_suffix("")
+        stem  = Path(task["output_png"]).with_suffix("")
         scale = float(cfg.get("sheet_scale", 1.0))
         seed  = cfg.get("seed")
 
         orig = Image.open(task["photo"]).convert("RGB")
         build_comparison_2(
-            orig,
-            result,
+            orig, result,
             stem.with_name(stem.name + "-comparison_2.png"),
-            seed,
-            scale,
+            seed, scale,
         )
-
         build_comparison_4(
-            orig,
-            control_img.convert("RGB"),
-            result,
+            orig, control_img.convert("RGB"), result,
             stem.with_name(stem.name + "-comparison_4.png"),
-            seed,
-            scale,
+            seed, scale,
         )
     except Exception as e:
-        print(f"[warn] contact‑sheet skipped: {e}")
+        print(f"[warn] contact-sheet skipped: {e}")
 
 
-# ── CLI boilerplate (unchanged) ────────────────────────────────────────
 if __name__ == "__main__":
     cli = argparse.ArgumentParser()
     cli.add_argument("--from-worklist", help="JSON file or '-' for stdin")
@@ -157,7 +132,7 @@ if __name__ == "__main__":
     cli.add_argument("output_png", nargs="?")
     cli.add_argument("--steps", type=int)
     cli.add_argument("--cond-scale", dest="cond_scale", type=float, default=1.0)
-    cli.add_argument("--guidance", type=float, default=7.5)
+    cli.add_argument("--guidance", type=float, default=5.0)
     cli.add_argument("--prompt", default="wooden artist mannequin, neutral backdrop")
     cli.add_argument("--neg-prompt")
     cli.add_argument("--seed", type=int)
@@ -167,7 +142,6 @@ if __name__ == "__main__":
     device = "cuda" if torch.cuda.is_available() else "cpu"
     pipe = build_pipe(device)
 
-    # work‑list mode -----------------------------------------------------
     if args.from_worklist:
         src = sys.stdin.read() if args.from_worklist == "-" else Path(args.from_worklist).read_text()
         tasks: List[Dict] = json.loads(src)
@@ -178,13 +152,12 @@ if __name__ == "__main__":
             render(t, device, pipe)
         sys.exit()
 
-    # single‑image fallback ---------------------------------------------
     single = {
         "photo": args.photo,
         "mask_png": args.mask_png,
         "output_png": args.output_png,
         "cfg": {
-            "steps": int(args.steps) if args.steps else 50,
+            "steps": int(args.steps) if args.steps else 25,
             "cond_scale": args.cond_scale,
             "guidance": args.guidance,
             "prompt": args.prompt,
