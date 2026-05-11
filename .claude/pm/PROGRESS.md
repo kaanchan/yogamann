@@ -2,6 +2,16 @@
 
 <!-- newest session at top — append-only, never rewrite -->
 
+## 2026-05-11 — First working end-to-end pipeline run (#7)
+- Installed hf_transfer 0.1.9, rtmlib 0.0.15, matplotlib via uv
+- Replaced deprecated huggingface-cli with Python download_models.py (fp16-only SDXL, allow_patterns per model)
+- Replaced broken controlnet_aux DWposeDetector (requires mmcv) with rtmlib ONNX wrapper (dwpose_onnx.py)
+- Fixed sd_make.py: variant="fp16", graceful torch.compile fallback, corrected DWposeDetector instantiation
+- Pipeline runs end-to-end: 130s/image, 0.8s/step (no compile), 2.0s pose (CPU ONNX)
+- Baseline defects: head faces wrong direction, no per-run timing telemetry
+- GH issues: #13 (HF offline+telemetry), #14 (torch.compile/cudagraphs), #15 (onnxruntime-gpu), #16 (OKS self-eval), #17 (head direction), #18 (baseline test set)
+- Committed 24e3b93, e8d73b7 → pushed to main
+
 ## 2026-05-11 — Session 3 cont: model download + make.ps1 fixes
 
 - HF_HUB_CACHE set to D:\models\hub (system-wide, all projects share cache)
