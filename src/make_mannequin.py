@@ -1,170 +1,179 @@
 """
-make_mannequin.py – driver script
-
-Features
-────────
-✓ fail‑fast validation
-✓ optional dry‑run
-✓ auto‑increment filenames (or --overwrite)
-✓ contact sheets toggle
-✓ **batch mode**: multiple PHOTO args and/or --folder
+make_mannequin.py – batch planner / driver
+2025‑07‑20  ·  smarter versions  ·  robust profile loader
 """
 
-import argparse, json, os, subprocess, sys, yaml, pathlib
-from PIL import Image
-from extract_pose import make_controlnet_mask, save_keypoints
-import create_contact_sheet as cs
+from __future__ import annotations
+import argparse, json, os, random, re, subprocess, sys
+import pathlib, warnings
+from typing import Dict, List
 
-ROOT   = pathlib.Path(__file__).resolve().parents[1]
-OUTPUT = ROOT / "output"; OUTPUT.mkdir(exist_ok=True)
+import yaml                         # <-- needed for YAML profiles
 
-# ── default config values ───────────────────────────────────────────────
-DEFAULTS = {
-    "steps": 30,
-    "seed": None,
+warnings.filterwarnings(
+    "ignore",
+    message=r"Overwriting tiny_vit_.* in registry",
+    category=UserWarning,
+    module=r"controlnet_aux\.segment_anything\.modeling\.tiny_vit_sam",
+)
+
+SRC_DIR = pathlib.Path(__file__).resolve().parent      # …/yogamann/src
+ROOT    = SRC_DIR.parent                               # …/yogamann
+OUTPUT_DIR = ROOT / "out"; OUTPUT_DIR.mkdir(exist_ok=True)
+PROFILES_DIR = ROOT / "profiles"   
+
+# ── defaults ───────────────────────────────────────────────────────────
+DEFAULT_PROFILE: Dict = {
+    "versions"   : 1,
+    "random"     : False,
+    "steps"      : 40,
+    "cond_scale" : 1.0,
+    "guidance"   : 7.5,
     "sheet_scale": 1.0,
-    "cond_scale": 1.0,
-    "guidance": 7.5,
-    "prompt": "wooden artist mannequin, neutral backdrop",
-    "neg_prompt": None,
+    "seed"       : None,
+    "prompt"     : "wooden artist mannequin, neutral backdrop",
+    "neg_prompt" : None,
 }
-RECREATE_MASK = bool(int(os.getenv("RECREATE_MASK", "0")))
 
+# ── profile loader ─────────────────────────────────────────────────────
+def _detect_format(path: pathlib.Path) -> str:
+    ext = path.suffix.lower()
+    if ext in {".yml", ".yaml"}:
+        return "yaml"
+    if ext == ".json":
+        return "json"
+    raise ValueError  # handled by caller
 
-# ── helpers ─────────────────────────────────────────────────────────────
-def validate_cfg(c):
-    assert c["steps"] > 0, "steps must be positive"
-    assert 0.5 <= c["sheet_scale"] <= 2.0, "sheet_scale 0.5–2.0"
-    assert 0.5 <= c["cond_scale"] <= 2.0, "cond_scale 0.5–2.0"
-    assert 4.0 <= c["guidance"] <= 15.0, "guidance 4–15"
-    assert c["prompt"].strip(), "prompt cannot be empty"
+def _read_profile(p: str) -> Dict:
+    """Find & read a profile, guessing extension + format when omitted."""
+    cand = pathlib.Path(p)
 
+    # 1️⃣ exact path?
+    if cand.exists():
+        fmt = _detect_format(cand)
+        txt = cand.read_text()
+        return yaml.safe_load(txt) if fmt == "yaml" else json.loads(txt)
 
-def load_cfg(profile, cli_dict):
-    cfg = DEFAULTS.copy()
-    if profile:
-        yml = ROOT / "profiles" / f"{pathlib.Path(profile).stem}.yml"
-        cfg.update(yaml.safe_load(yml.read_text()))
-    cfg.update({k: v for k, v in cli_dict.items() if v is not None})
-    validate_cfg(cfg)
-    return cfg
+    # 2️⃣ search nearby with added extension
+    for ext in (".yml", ".yaml", ".json"):
+        guess = cand.with_suffix(ext)
+        if guess.exists():
+            return _read_profile(str(guess))
 
+    # 3️⃣ look in a local “profiles/” folder
+    for ext in (".yml", ".yaml", ".json"):
+        guess = ROOT / "profiles" / f"{cand.stem}{ext}"
+        if guess.exists():
+            return _read_profile(str(guess))
 
-def next_free(path: pathlib.Path, overwrite: bool) -> pathlib.Path:
-    if overwrite or not path.exists():
-        return path
-    i = 1
-    while True:
-        p = path.with_name(f"{path.stem}-{i}{path.suffix}")
-        if not p.exists():
-            return p
-        i += 1
+    raise FileNotFoundError(f"Profile file not found: {p}")
 
+# ── helpers (unchanged) ────────────────────────────────────────────────
+def linspace(a: float, b: float, n: int) -> List[float]:
+    if n == 1:
+        return [a]
+    step = (b - a) / (n - 1)
+    return [a + i * step for i in range(n)]
 
-# ── main per‑photo routine ─────────────────────────────────────────────
-def process_photo(photo: pathlib.Path, cfg: dict,
-                  make_sheets: bool, overwrite: bool,
-                  profile_name: str | None, dry_run: bool):
+def expand_value(val, versions: int, rand: bool):
+    if isinstance(val, list) and len(val) == 2:
+        lo, hi = val
+        return [random.uniform(lo, hi) for _ in range(versions)] if rand else linspace(lo, hi, versions)
+    return [val] * versions
 
-    stem = photo.stem
-    mask_png = OUTPUT / f"{stem}-controlnet.png"
-    json_fp  = OUTPUT / f"{stem}-controlnet.json"
+def pad_version(i: int, total: int) -> str:
+    return f"v{i:0{len(str(total))}d}"
 
-    man_png = next_free(OUTPUT / f"{stem}-mannequin.png", overwrite)
-    stem_out = man_png.stem.replace("-mannequin", "")
-    sheet2 = OUTPUT / f"{stem_out}-comparison_2.png"
-    sheet4 = OUTPUT / f"{stem_out}-comparison_4.png"
+def next_free_stem(base: str, ext: str) -> str:
+    p = OUTPUT_DIR / f"{base}{ext}"
+    if not p.exists():
+        return base
+    j = 1
+    while (OUTPUT_DIR / f"{base}-{j}{ext}").exists():
+        j += 1
+    return f"{base}-{j}"
 
-    provenance = {"profile_name": profile_name or "none",
-                  "profile_version": cfg.get("profile_version", "n/a"),
-                  **cfg}
+def build_tasks(photo: pathlib.Path, cfg: Dict) -> List[Dict]:
+    V   = cfg["versions"]
+    rnd = cfg["random"]
+    fields = {k: expand_value(v, V, rnd)
+              for k, v in cfg.items()
+              if k in {"steps", "cond_scale", "guidance", "seed"}}
 
-    # mask generation / reuse
-    if RECREATE_MASK or overwrite or not mask_png.exists():
-        pts = make_controlnet_mask(photo, mask_png)
-        save_keypoints(pts, json_fp, photo)
-        print("✓ pose mask generated")
+    # collapse only if seed fixed & all params identical
+    if V > 1 and cfg.get("seed") is not None and not rnd \
+       and all(len(set(v)) == 1 for v in fields.values()):
+        print(f"⚠ [{photo.name}] versions>1 but no varying params; generating v1 only")
+        V = 1
+
+    stem0 = next_free_stem(photo.stem, f"--{pad_version(1,V)}.png")
+    tasks = []
+    for i in range(1, V + 1):
+        vtag  = f"--{pad_version(i,V)}"
+        stem  = stem0.replace(f"--{pad_version(1,V)}", vtag)
+        out_p = OUTPUT_DIR / f"{stem}.png"
+        mask  = OUTPUT_DIR / f"{photo.stem}-controlnet.png"
+
+        cfg_i = cfg.copy()
+        for k, seq in fields.items():
+            cfg_i[k] = seq[i-1]
+        cfg_i.update({"version": i, "version_tag": vtag})
+
+        tasks.append({
+            "photo"     : str(photo),
+            "mask_png"  : str(mask),
+            "OUTPUT_DIR_png": str(out_p),
+            "cfg"       : cfg_i
+        })
+    return tasks
+
+# ── CLI ────────────────────────────────────────────────────────────────
+cli = argparse.ArgumentParser()
+cli.add_argument("photo", nargs="*", help="image file(s) to process")
+cli.add_argument("--folder", help="process every image in this folder")
+cli.add_argument("--profile", help="profile name / path")
+cli.add_argument("--dump-worklist")
+cli.add_argument("--dump-only", action="store_true")
+args, kv_overrides = cli.parse_known_args()
+
+# parse key=value overrides --------------------------------------------------
+overrides = {}
+pat = re.compile(r"--(?P<key>[^=]+)=(?P<val>.+)")
+for token in kv_overrides:
+    if m := pat.match(token):
+        overrides[m.group("key").replace("-", "_")] = yaml.safe_load(m.group("val"))
     else:
-        print("↳ pose mask reused")
+        print(f"warning: ignored unknown arg '{token}'")
 
-    # mannequin render or dry‑run
-    cmd = [sys.executable, str(ROOT / "src/sd_make.py"),
-           str(photo), str(mask_png), str(man_png),
-           "--steps", str(cfg['steps']),
-           "--cond-scale", str(cfg['cond_scale']),
-           "--guidance", str(cfg['guidance']),
-           "--prompt", cfg['prompt'],
-           "--meta", json.dumps(provenance)]
-    if cfg["neg_prompt"]:
-        cmd += ["--neg-prompt", cfg["neg_prompt"]]
-    if cfg["seed"] is not None:
-        cmd += ["--seed", str(cfg["seed"])]
-    if dry_run:
-        cmd += ["--dry-run"]
+# load profile ---------------------------------------------------------------
+cfg = DEFAULT_PROFILE.copy()
+if args.profile:
+    cfg.update(_read_profile(args.profile))
+cfg.update(overrides)
 
-    subprocess.run(cmd, check=True)
-    print("✓ mannequin pipeline OK" + (" (dry-run)" if dry_run else ""))
+# collect photos -------------------------------------------------------------
+photos: List[pathlib.Path] = []
+if args.folder:
+    photos += [p for p in pathlib.Path(args.folder).iterdir()
+               if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}]
+photos += [pathlib.Path(p) for p in args.photo]
+if not photos:
+    cli.error("provide at least one PHOTO or --folder")
 
-    if dry_run:
-        return  # skip heavy post‑steps in smoke test mode
+# build & maybe dump work‑list ----------------------------------------------
+worklist = [t for photo in photos for t in build_tasks(photo.resolve(), cfg)]
+if args.dump_worklist:
+    pathlib.Path(args.dump_worklist).write_text(json.dumps(worklist, indent=2))
+    print("✓ work‑list written:", args.dump_worklist)
+    if args.dump_only:
+        sys.exit(0)
 
-    # write provenance into JSON
-    with open(json_fp, "r+") as f:
-        data = json.load(f); data["config"] = provenance
-        f.seek(0); json.dump(data, f, indent=2); f.truncate()
-
-    # contact sheets
-    if make_sheets:
-        o, m = Image.open(photo), Image.open(man_png)
-        c = Image.open(mask_png).convert("RGB")
-        scale = cfg["sheet_scale"]
-        cs.build_comparison_2(o, m, sheet2, cfg["seed"], scale)
-        cs.build_comparison_4(o, c, m, sheet4, cfg["seed"], scale)
-        print(f"✓ contact sheets saved ({sheet2.name}, {sheet4.name})")
-
-
-# ── CLI parsing & batch dispatch ───────────────────────────────────────
-if __name__ == "__main__":
-    ap = argparse.ArgumentParser()
-    ap.add_argument("photo", nargs="*", help="one or more image files")
-    ap.add_argument("--folder", help="process every image in this folder")
-    ap.add_argument("--profile")
-    ap.add_argument("--steps", type=int)
-    ap.add_argument("--seed", type=int)
-    ap.add_argument("--sheet-scale", type=float)
-    ap.add_argument("--cond-scale", type=float)
-    ap.add_argument("--guidance", type=float)
-    ap.add_argument("--prompt")
-    ap.add_argument("--neg-prompt")
-    ap.add_argument("--no-contact-sheets", action="store_true")
-    ap.add_argument("--overwrite", action="store_true")
-    ap.add_argument("--dry-run", action="store_true",
-                    help="fast pipeline smoke test, no render")
-    args = ap.parse_args()
-
-    # collect photos
-    photos: list[pathlib.Path] = []
-
-    if args.folder:
-        for p in pathlib.Path(args.folder).iterdir():
-            if p.suffix.lower() in {".jpg", ".jpeg", ".png", ".webp"}:
-                photos.append(p.resolve())
-
-    photos.extend(pathlib.Path(p).resolve() for p in args.photo)
-
-    if not photos:
-        ap.error("Provide at least one PHOTO path or --folder.")
-
-    # build CLI dict for cfg merge (remove path keys)
-    cli_dict = vars(args).copy()
-    cli_dict.pop("photo", None)
-    cli_dict.pop("folder", None)
-
-    for p in photos:
-        print(f"\n=== {p.name} ===")
-        cfg = load_cfg(args.profile, cli_dict)
-        process_photo(p, cfg,
-                      make_sheets=not args.no_contact_sheets,
-                      overwrite=args.overwrite,
-                      profile_name=args.profile,
-                      dry_run=args.dry_run)
+# execute sequentially -------------------------------------------------------
+for t in worklist:
+    print(f"\n=== {pathlib.Path(t['photo']).name}{t['cfg']['version_tag']} ===")
+    subprocess.run(
+        [sys.executable, str(SRC_DIR / "sd_make.py"), "--from-worklist", "-"],
+        input=json.dumps([t]),
+        text=True,
+        check=True,
+    )

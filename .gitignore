@@ -1,0 +1,17 @@
+# Python
+__pycache__/
+*.py[cod]
+
+# Conda / venv
+*.egg-info/
+.env
+
+# Local backup snapshots (superseded by main src/)
+BACKUPS/
+
+# Generated output images (too large for git)
+output/
+
+# OS
+.DS_Store
+Thumbs.db
