@@ -14,13 +14,12 @@
 
 ## Sub-tasks
 
-- [ ] Fix `src/diagnostics/rtx5080-test.py` — FP8 path: `torch._scaled_mm` (#8)
-- [ ] Fix `C:\Users\kaanchan\Projects\System-tools\pytorch\rtx5080-test.py` — same fix (#8)
-- [ ] Fix `System-tools/pytorch/pyproject.toml` — add `environments = ["sys_platform == 'win32'"]` (#8)
-- [ ] Add `torch.compile(pipe.unet, ...)` in `sd_make.py` `build_pipe()` (#9)
-- [ ] Add compile-mode note in diagnostics import check section (#9)
-- [ ] Run diagnostics + single image test — user confirms (#8+#9)
-- [ ] Commit #8+#9, push, close issues
+- [x] Fix FP8 benchmark (both rtx5080-test.py) — #8 closed, commit 2d24a76
+- [x] torch.compile in sd_make.py — #9 closed, commit 2d24a76
+- [x] run.ps1 test runner — #11 closed, commit 13fa538
+- [x] Structured logging throughout — #12 closed, commit 13fa538
+- [ ] First end-to-end image test — `.\run.ps1` — user confirms (#7)
+- [ ] Commit, push, close #7
 - [ ] Check torchao nightly for cu130 Windows wheel (#10)
 - [ ] Install torchao, add real NVFP4 benchmark (#10)
 - [ ] Commit #10, push, close issue

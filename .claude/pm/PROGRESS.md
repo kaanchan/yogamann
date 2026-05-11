@@ -2,6 +2,23 @@
 
 <!-- newest session at top — append-only, never rewrite -->
 
+## 2026-05-11 — Session 3 cont: logging + run.ps1 runner
+
+- Issue #11 closed: run.ps1 created — targets: test/test-all/diag/gallery/open; -LogLevel param; colored headers; browser auto-open on success
+- Issue #12 closed: structured logging wired through make_mannequin, sd_make, extract_pose, create_contact_sheet; YOGAMANN_LOG_LEVEL env var propagates to subprocesses
+- Commit: 13fa538
+- Open: #7 (first end-to-end image test, user runs .\run.ps1), #10 (torchao/NVFP4)
+
+## 2026-05-11 — Session 3: FP8 fix + torch.compile + venv rebuild
+
+- Rebuilt venv: Python 3.13.5 / torch 2.13.0.dev20260510+cu130 (uv cache hit, fast)
+- Fixed uv triton resolver bug: added `environments = ["sys_platform == 'win32'"]` to pyproject.toml
+- Issue #8 closed: FP8 benchmark corrected (torch._scaled_mm + b.T column-major); E4M3FN confirmed live on sm_120 (~8× faster than BF16 on equivalent workload)
+- Issue #9 closed: torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False) added to build_pipe()
+- Same fixes applied to System-tools/pytorch/ (local only, no remote)
+- Open: #7 (end-to-end image test), #10 (torchao/NVFP4)
+- Commit: 2d24a76
+
 ## 2026-05-11 — First clean run on new laptop
 
 - Resolved mediapipe cp312 incompatibility: pinned mediapipe==0.10.13 — #6 (614b3d5)
