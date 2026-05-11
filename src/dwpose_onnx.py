@@ -6,9 +6,12 @@ is the pure-numpy code from controlnet_aux.dwpose (no mmcv required).
 """
 import cv2
 import numpy as np
+import onnxruntime
 import torch
 from PIL import Image
 from rtmlib import Wholebody as RTMWholebody
+
+onnxruntime.set_default_logger_severity(3)  # suppress C-level graph cleanup noise (show errors only)
 
 from controlnet_aux.dwpose import draw_pose
 from controlnet_aux.util import HWC3, resize_image

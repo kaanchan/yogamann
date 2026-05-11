@@ -11,6 +11,14 @@ from math import ceil
 from pathlib import Path
 from typing import Dict, List
 
+# Suppress noisy 3rd-party deprecation warnings before any imports fire them
+warnings.filterwarnings("ignore", message=r"Overwriting tiny_vit_",          category=UserWarning)
+warnings.filterwarnings("ignore", message=r"The module 'mediapipe'",          category=UserWarning)
+warnings.filterwarnings("ignore", message=r"Specified provider 'CUDAExecutionProvider'", category=UserWarning)
+warnings.filterwarnings("ignore", message=r"`torch\.jit\.script` is deprecated", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=r"Please import.*scipy\.ndimage\.filters", category=DeprecationWarning)
+warnings.filterwarnings("ignore", message=r"Importing from timm\.models\.(layers|registry)", category=FutureWarning)
+
 import torch
 
 _log_level = os.environ.get("YOGAMANN_LOG_LEVEL", "INFO")

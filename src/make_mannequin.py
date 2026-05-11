@@ -21,8 +21,8 @@ warnings.filterwarnings(
 
 SRC_DIR = pathlib.Path(__file__).resolve().parent      # …/yogamann/src
 ROOT    = SRC_DIR.parent                               # …/yogamann
-OUTPUT_DIR = ROOT / "out"; OUTPUT_DIR.mkdir(exist_ok=True)
-PROFILES_DIR = ROOT / "profiles"   
+OUTPUT_DIR: pathlib.Path = None  # set after arg parsing
+PROFILES_DIR = ROOT / "profiles"
 
 # ── defaults ───────────────────────────────────────────────────────────
 DEFAULT_PROFILE: Dict = {
@@ -133,6 +133,8 @@ def build_tasks(photo: pathlib.Path, cfg: Dict) -> List[Dict]:
 cli = argparse.ArgumentParser()
 cli.add_argument("photo", nargs="*", help="image file(s) to process")
 cli.add_argument("--folder", help="process every image in this folder")
+cli.add_argument("--output-dir", dest="output_dir",
+                 help="directory for output images (default: <repo>/out)")
 cli.add_argument("--profile", help="profile name / path")
 cli.add_argument("--dump-worklist")
 cli.add_argument("--dump-only", action="store_true")
@@ -140,6 +142,9 @@ cli.add_argument("--log-level", default=os.environ.get("YOGAMANN_LOG_LEVEL", "IN
                  choices=["DEBUG", "INFO", "WARNING", "ERROR"],
                  help="logging verbosity (default: INFO)")
 args, kv_overrides = cli.parse_known_args()
+
+OUTPUT_DIR = pathlib.Path(args.output_dir) if args.output_dir else ROOT / "out"
+OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 logging.basicConfig(
     level=getattr(logging, args.log_level),
@@ -181,17 +186,13 @@ if args.dump_worklist:
     if args.dump_only:
         sys.exit(0)
 
-# execute sequentially -------------------------------------------------------
+# execute — single subprocess handles all tasks so CUDA warms up only once ---
 log.info("Processing %d task(s) — profile: %s", len(worklist),
          args.profile or "default")
-for t in worklist:
-    label = f"{pathlib.Path(t['photo']).name}{t['cfg']['version_tag']}"
-    log.info("Starting task: %s", label)
-    subprocess.run(
-        [sys.executable, str(SRC_DIR / "sd_make.py"), "--from-worklist", "-"],
-        input=json.dumps([t]),
-        text=True,
-        check=True,
-        env={**os.environ, "PYTHONUTF8": "1"},
-    )
-    log.info("Task complete: %s", label)
+subprocess.run(
+    [sys.executable, str(SRC_DIR / "sd_make.py"), "--from-worklist", "-"],
+    input=json.dumps(worklist),
+    text=True,
+    check=True,
+    env={**os.environ, "PYTHONUTF8": "1"},
+)

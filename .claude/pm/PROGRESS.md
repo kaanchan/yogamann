@@ -1,6 +1,6 @@
 # PROGRESS
 
-<!-- newest session at top — append-only, never rewrite -->
+<!-- newest session at top — append-only, never rewrite -->n## 2026-05-11 — HF offline + metrics JSONn- Closed #13: HF_HUB_OFFLINE=1 in make.ps1 test/test-all; .metrics.json sidecar per run (seed, timing phases, rating/notes stub)n- Commit: 1cd431f
 
 ## 2026-05-11 — First working end-to-end pipeline run (#7)
 - Installed hf_transfer 0.1.9, rtmlib 0.0.15, matplotlib via uv
