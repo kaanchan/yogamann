@@ -1,0 +1,79 @@
+# yoga_asana_v1_archival.yml
+#
+# ARCHIVAL PROFILE — do not modify.
+# Captures the exact parameters used to generate the v1 baseline outputs
+# (BACKUPS/WORKING - v1/output/, dated 2025-07-20).
+#
+# ── Infrastructure at time of generation ───────────────────────────────────────
+#
+#   SD model:         runwayml/stable-diffusion-v1-5  (SD 1.5 — NOT SDXL)
+#   ControlNet:       lllyasviel/sd-controlnet-openpose (SD 1.5 variant)
+#
+#   vs. CURRENT: stabilityai/stable-diffusion-xl-base-1.0 (SDXL)
+#                xinsir/controlnet-openpose-sdxl-1.0
+#   NOTE: SD 1.5 and SDXL have different UNet architectures, VAEs, and
+#   attention mechanisms. The texture and color palette of v1 outputs is
+#   partly a product of SD 1.5's specific aesthetic — distinct from SDXL.
+#
+#   Pose detection:   MediaPipe (google/mediapipe)
+#                     mp.solutions.pose.Pose(static_image_mode=True)
+#                     33 body landmarks, POSE_CONNECTIONS skeleton graph
+#                     Canvas: 768×768 px, light-grey RGBA skeleton on transparent bg
+#
+#   SD pipeline:      Stable Diffusion XL (stabilityai/stable-diffusion-xl-base-1.0)
+#                     ControlNet: xinsir/controlnet-openpose-sdxl-1.0
+#                     Scheduler: DPMSolverMultistepScheduler
+#                     Python 3.10, PyTorch (CUDA), diffusers library
+#
+#   vs. CURRENT infrastructure (as of 2026-05):
+#     Pose detection:  DWPose ONNX (controlnet_aux.DWposeDetector)
+#                      133 keypoints (COCO WholeBody: body + hands + face)
+#                      No mediapipe dependency — ONNX runtime only
+#                      NOTE: DWPose and MediaPipe produce different skeleton
+#                      geometry even for the same input image. This means
+#                      outputs will differ visually even if all profile params
+#                      are restored exactly. The v1 visual character is partly
+#                      a function of MediaPipe's 33-point skeleton style.
+#     Steps:           25 (was 30)
+#     Seed:            42 fixed (was null = random per run)
+#     cond_scale:      1.5 (was 1.0) — found optimal via cs_sweep
+#     guidance:        7.0 (was 7.5) — confirmed neutral bg via sweep v3
+#     Prompt:          substantially rewritten (see current yoga_asana.yml)
+#     neg_prompt:      expanded from ~6 terms to 20+ explicit exclusions
+#
+# ── Reproduction notes ─────────────────────────────────────────────────────────
+#
+#   To reproduce v1 outputs exactly:
+#     1. Restore mediapipe-based extract_pose.py (see git history, 2025-07-20 commit)
+#     2. Use this profile
+#     3. For sample-1 specifically: seed was 108 (captured in
+#        output/yoga-pose-sample-1-controlnet.json). Other samples used
+#        random seeds and cannot be reproduced exactly.
+#
+#   Input images: yoga-pose-sample-1.webp through yoga-pose-sample-5.webp
+#   Output images archived in: docs/reference-outputs/v1-baseline/
+#
+# ── Why this profile was superseded ────────────────────────────────────────────
+#
+#   cond_scale raised from 1.0 → 1.5: tighter limb adherence to pose mask
+#   guidance lowered from 7.5 → 7.0: cleaner neutral backgrounds
+#   steps reduced from 30 → 25: faster generation, no quality loss observed
+#   DWPose replaced MediaPipe: richer keypoint set (hands, face),
+#     better occlusion handling, no Google dependency
+#   Prompt rewritten: "pale ash wood" and "ball-jointed limbs" produced
+#     more consistent mannequin texture; explicit human exclusions in
+#     neg_prompt eliminated skin/face bleed-through artifacts
+#
+# ───────────────────────────────────────────────────────────────────────────────
+
+steps: 30
+seed: null             # was random per run; sample-1 used seed 108
+sheet_scale: 1.0
+cond_scale: 1.0
+guidance: 7.5
+prompt: |
+  wooden artist mannequin, detailed ash wood grain,
+  performing advanced yoga asana, full articulation, no props,
+  studio lighting
+neg_prompt: |
+  blocks, chair, foam mat, extra limbs, disassembly, merged limbs, neon, psychedelic, posterized, high saturation

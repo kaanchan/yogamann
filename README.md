@@ -4,6 +4,10 @@ Converts yoga pose photos into wooden artist mannequin renders using ControlNet-
 
 Pipeline: **DWPose** detects the skeleton → **xinsir/controlnet-openpose-sdxl-1.0** conditions SDXL generation → contact-sheet comparisons saved alongside outputs → results ingested into a SQLite review database.
 
+<img src="docs/reference-outputs/batch-feature/yoga-pose-sample-1.png" width="320" alt="Sample mannequin render — yoga-pose-sample-1, profile-batch feature era (SD 1.5 + MediaPipe, 2025-07-20)">
+
+*Sample output from the v1 pipeline (SD 1.5 + MediaPipe, July 2025). See [`docs/reference-outputs/`](docs/reference-outputs/) for the full baseline set and [`docs/archive/v1-mediapipe-2025-07-20/`](docs/archive/v1-mediapipe-2025-07-20/) for the source that produced them.*
+
 ---
 
 ## Setup

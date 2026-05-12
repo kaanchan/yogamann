@@ -1,0 +1,32 @@
+{
+  "observations": [
+    {
+      "id": "OBS-001",
+      "title": "Outdoor / complex backgrounds produce artifacts",
+      "category": "input_quality",
+      "description": "Source images photographed outdoors or against busy, texture-heavy backgrounds produce outputs with multiple unwanted surface textures, incorrect limb positions, and background detail bleeding into the rendered mannequin.",
+      "likely_cause": "ControlNet conditioning competes with the background signal during diffusion. The model fills non-pose regions with textures drawn from the source image context rather than neutral studio space. The pose skeleton may also be noisier when extracted from a cluttered background.",
+      "what_to_try": [
+        "Pre-process outdoor source images with background removal (rembg, SAM) before pose extraction",
+        "Test higher cond_scale (1.75-2.0) to force the model to prioritise pose signal over background noise",
+        "Add 'outdoor background, natural background, grass, foliage, floor texture' to neg_prompt"
+      ],
+      "status": "open",
+      "added": "2026-05-12"
+    },
+    {
+      "id": "OBS-002",
+      "title": "Prone back-bends not captured correctly by pose estimator",
+      "category": "pose_detection",
+      "description": "Asanas with prone back-bends (e.g. Bhujangasana / Cobra, Dhanurasana / Bow, Ustrasana / Camel) produce outputs where the pose is wrong or the figure is distorted.",
+      "likely_cause": "DWPose / OpenPose struggle with limb occlusion in prone orientation and unusual body plane orientation. Keypoints may be mirrored or swapped left/right.",
+      "what_to_try": [
+        "Compare DWPose vs MediaPipe skeleton output for this pose family",
+        "Test lower cond_scale (1.0-1.2) so the diffusion model can self-correct a partially wrong skeleton",
+        "Consider a dedicated profile (yoga_asana_prone) with adjusted conditioning"
+      ],
+      "status": "open",
+      "added": "2026-05-12"
+    }
+  ]
+}
