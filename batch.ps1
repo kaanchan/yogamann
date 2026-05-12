@@ -14,9 +14,10 @@ param(
 
     [string]$PipelineProfile = "yoga_asana",
     [string]$LogLevel = "INFO",
-    [int]$Limit = 0,     # max images to process this run (0 = unlimited)
+    [int]$Limit = 0,          # max images to process this run (0 = unlimited)
     [switch]$DryRun,
-    [switch]$Monitor     # spawn monitor.ps1 in a new terminal window
+    [switch]$Monitor,         # spawn monitor.ps1 in a new terminal window
+    [switch]$Overwrite        # reprocess images that already have output (default: skip)
 )
 
 $Python   = ".\.venv\Scripts\python.exe"
@@ -91,6 +92,13 @@ function Get-ImageFiles([string]$dir) {
         Where-Object { $ImageExt -contains $_.Extension.ToLower() }
 }
 
+function Test-OutputExists([System.IO.FileInfo]$img, [string]$outDir) {
+    # Returns $true if any output PNG for this source image already exists.
+    # Output filenames follow the pattern:  {stem}--v*.png
+    $found = Get-ChildItem -Path $outDir -Filter "$($img.BaseName)--*.png" -ErrorAction SilentlyContinue
+    return ($null -ne $found -and $found.Count -gt 0)
+}
+
 function Invoke-Python([string[]]$pyArgs) {
     # Quote args that contain spaces so Start-Process doesn't split them
     $argStr = ($pyArgs | ForEach-Object {
@@ -146,7 +154,11 @@ try {
         Write-Host "==> Single file: $ResolvedSource" -ForegroundColor Cyan
         Write-Host "    -> $outDir"                   -ForegroundColor DarkCyan
 
-        if (-not $DryRun) {
+        $srcFileInfo = Get-Item -LiteralPath $ResolvedSource
+        $alreadyExists = (Test-Path $outDir) -and (Test-OutputExists $srcFileInfo $outDir)
+        if ($alreadyExists -and -not $Overwrite) {
+            Write-Host "    [skip] output already exists — use -Overwrite to reprocess" -ForegroundColor DarkGray
+        } elseif (-not $DryRun) {
             New-Item -ItemType Directory -Path $outDir -Force | Out-Null
             Invoke-Python @(
                 "src/make_mannequin.py",
@@ -164,7 +176,7 @@ try {
                 Select-Object -ExpandProperty FullName
         )
 
-        $processed = 0; $skipped = 0; $totalImages = 0
+        $processed = 0; $skipped = 0; $totalImages = 0; $alreadyDone = 0
         $remaining = $Limit   # 0 = unlimited
 
         foreach ($d in $dirs) {
@@ -173,22 +185,36 @@ try {
             $imgs = Get-ImageFiles $d
             if (-not $imgs) { $skipped++; continue }
 
+            # Skip images whose output already exists (unless -Overwrite)
+            if (-not $Overwrite) {
+                $outDir = Get-OutputDir $d
+                $pending = $imgs | Where-Object { -not (Test-OutputExists $_ $outDir) }
+                $doneCount = $imgs.Count - @($pending).Count
+                if ($doneCount -gt 0) {
+                    Write-Host "    [skip] $doneCount already done in $([System.IO.Path]::GetFileName($d))" -ForegroundColor DarkGray
+                    $alreadyDone += $doneCount
+                }
+                $imgs = $pending
+            }
+            if (-not $imgs) { $skipped++; continue }
+
             # Trim to remaining budget if needed
-            $batch = if ($Limit -gt 0 -and $imgs.Count -gt $remaining) {
+            $batch = if ($Limit -gt 0 -and @($imgs).Count -gt $remaining) {
                 $imgs | Select-Object -First $remaining
             } else { $imgs }
 
             Invoke-DirBatch $d $batch
             $processed++
-            $totalImages += $batch.Count
-            if ($Limit -gt 0) { $remaining -= $batch.Count }
+            $totalImages += @($batch).Count
+            if ($Limit -gt 0) { $remaining -= @($batch).Count }
         }
 
         $limitNote = if ($Limit -gt 0) { "  (limit: $Limit)" } else { "" }
+        $skipNote  = if (-not $Overwrite -and $alreadyDone -gt 0) { "  ($alreadyDone skipped — already done)" } else { "" }
         Write-Host ""
         Write-Host "── Batch complete ──────────────────────────────" -ForegroundColor Green
         Write-Host "   Dirs with images : $processed"
-        Write-Host "   Total images     : $totalImages$limitNote"
+        Write-Host "   Total images     : $totalImages$limitNote$skipNote"
         Write-Host "   Dirs skipped     : $skipped (no images)"
     }
 

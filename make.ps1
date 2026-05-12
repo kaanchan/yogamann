@@ -1,6 +1,7 @@
 param(
-    [string]$Target   = "test",
-    [string]$LogLevel = "INFO"
+    [string]$Target     = "test",
+    [string]$LogLevel   = "INFO",
+    [string]$OutputRoot = "D:\Temp\yogamann-output"
 )
 
 $Python  = ".\.venv\Scripts\python.exe"
@@ -47,6 +48,19 @@ switch ($Target) {
     "open" {
         Start-Process "out\index.html"
     }
+    "ingest" {
+        Invoke-Step "Ingest .metrics.json → yogamann.db ($OutputRoot)" {
+            & $Python src/db.py --ingest --output-root $OutputRoot
+        }
+        Invoke-Step "DB stats" {
+            & $Python src/db.py --stats --output-root $OutputRoot
+        }
+    }
+    "review" {
+        Write-Host "`n==> Launching Streamlit gallery" -ForegroundColor Cyan
+        $env:HF_HUB_OFFLINE = "1"
+        & ".\.venv\Scripts\streamlit.exe" run src/gallery.py -- --output-root $OutputRoot
+    }
     "download" {
         if (-not $env:HF_TOKEN) {
             Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slower (unauthenticated)." -ForegroundColor Yellow
@@ -67,6 +81,8 @@ switch ($Target) {
         Write-Host "  diag      hardware + import diagnostics"
         Write-Host "  gallery   regenerate HTML gallery + open browser"
         Write-Host "  open      open existing gallery"
+        Write-Host "  ingest    import .metrics.json files into yogamann.db"
+        Write-Host "  review    launch Streamlit review gallery"
         Write-Host ""
         Write-Host "Log levels: DEBUG  INFO  WARNING  ERROR  (default: INFO)"
         Write-Host ""
@@ -75,5 +91,7 @@ switch ($Target) {
         Write-Host "  .\make.ps1                         # run test, INFO logging"
         Write-Host "  .\make.ps1 -LogLevel DEBUG         # verbose output"
         Write-Host "  .\make.ps1 -Target test-all        # all images"
+        Write-Host "  .\make.ps1 -Target ingest          # import outputs into DB"
+        Write-Host "  .\make.ps1 -Target review          # open Streamlit gallery"
     }
 }
