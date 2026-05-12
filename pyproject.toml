@@ -26,6 +26,8 @@ dependencies = [
     "hf-transfer>=0.1.9",
     "rtmlib>=0.0.15",
     "matplotlib>=3.10.9",
+    # review gallery
+    "streamlit>=1.37",
 ]
 
 [tool.uv]

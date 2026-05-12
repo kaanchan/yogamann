@@ -1,5 +1,14 @@
 # PROGRESS
 
+## 2026-05-11 — SQLite revision history, DB-backed gallery, skip-existing
+
+- **#24 closed** — `src/db.py`: schema (source_images, runs, thumbnails), SHA256 identity, 150×150 thumbnail blobs, ingest-from-JSON, rating write, query helpers.
+- **#21 closed** — `src/gallery.py` rewritten: DB-backed, run history expander per source image, rated/gold stats sidebar, auto-refresh, pagination.
+- **#23 closed** — `batch.ps1`: `-Overwrite` switch; skips images with existing output by default; summary reports skip count.
+- **make.ps1** — added `ingest` and `review` targets, `-OutputRoot` param.
+- **sd_make.py** — `source_sha256` added to metrics JSON; best-effort DB insert after each run; EXIF fix also applied to comparison panel (contact sheets now use corrected src_img).
+- **pyproject.toml** — added `streamlit>=1.37` dependency.
+
 ## 2026-05-11 — BSOD fix, EXIF orientation, batch/monitor improvements
 
 - **#20 closed** — BSOD (kernel panic 0x00020001) from phone photos (5184×3888) generating at full native resolution. Fixed in `sd_make.py`: scale down so long side ≤ 1024, snap to nearest 64.
