@@ -37,6 +37,7 @@ from dwpose_onnx import DWposeDetector
 
 from extract_pose import make_controlnet_mask, save_keypoints
 from create_contact_sheet import build_comparison_2, build_comparison_4
+from db import open_db, sha256_file, ingest_json
 
 BASE_ID    = "stabilityai/stable-diffusion-xl-base-1.0"
 CONTROL_ID = "xinsir/controlnet-openpose-sdxl-1.0"
@@ -87,7 +88,8 @@ def render(task: Dict, device: str, pipe) -> None:
     # 1. CONTROLNET MASK  (DWPose)
     # ------------------------------------------------------------------
     # Open once; exif_transpose corrects rotation stored in EXIF (common in phone photos)
-    src_img = ImageOps.exif_transpose(Image.open(task["photo"])).convert("RGB")
+    src_img    = ImageOps.exif_transpose(Image.open(task["photo"])).convert("RGB")
+    source_sha = sha256_file(Path(task["photo"]))
 
     log.info("Detecting pose — %s", photo.name)
     t_pose = time.time()
@@ -156,30 +158,44 @@ def render(task: Dict, device: str, pipe) -> None:
     log.info("Saved → %s", Path(task["output_png"]).name)
 
     metrics = {
-        "timestamp"   : time.strftime("%Y-%m-%dT%H:%M:%S"),
-        "input_photo" : str(photo),
-        "output_png"  : task["output_png"],
-        "seed"        : actual_seed,
-        "steps"       : steps,
-        "guidance"    : cfg["guidance"],
-        "cond_scale"  : cfg["cond_scale"],
-        "prompt"      : cfg["prompt"],
-        "neg_prompt"  : cfg.get("neg_prompt"),
-        "width"       : w64,
-        "height"      : h64,
-        "profile"     : cfg.get("profile"),
-        "timing"      : {
+        "timestamp"     : time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "input_photo"   : str(photo),
+        "source_sha256" : source_sha,
+        "output_png"    : task["output_png"],
+        "seed"          : actual_seed,
+        "steps"         : steps,
+        "guidance"      : cfg["guidance"],
+        "cond_scale"    : cfg["cond_scale"],
+        "prompt"        : cfg["prompt"],
+        "neg_prompt"    : cfg.get("neg_prompt"),
+        "width"         : w64,
+        "height"        : h64,
+        "profile"       : cfg.get("profile"),
+        "timing"        : {
             "pose_s"    : round(pose_s, 2),
             "generate_s": round(gen_s, 2),
             "total_s"   : round(pose_s + gen_s, 2),
             "s_per_step": round(gen_s / steps, 2),
         },
-        "rating"      : None,
-        "notes"       : None,
+        "rating"        : None,
+        "notes"         : None,
     }
     metrics_path = Path(task["output_png"]).with_suffix(".metrics.json")
     metrics_path.write_text(json.dumps(metrics, indent=2))
     log.info("Metrics → %s", metrics_path.name)
+
+    # Best-effort DB insert — never blocks or crashes the pipeline
+    try:
+        _db_root = Path(task["output_png"]).parent
+        while _db_root.parent != _db_root and not (_db_root / "yogamann.db").exists():
+            _db_root = _db_root.parent
+        _db_path = _db_root / "yogamann.db"
+        _conn = open_db(_db_path)
+        ingest_json(_conn, metrics_path)
+        _conn.close()
+        log.debug("DB updated — %s", _db_path.name)
+    except Exception as _e:
+        log.debug("DB write skipped: %s", _e)
 
     # ------------------------------------------------------------------
     # 4. CONTACT-SHEETS
@@ -189,7 +205,7 @@ def render(task: Dict, device: str, pipe) -> None:
         scale = float(cfg.get("sheet_scale", 1.0))
         seed  = cfg.get("seed")
         log.info("Building contact sheets")
-        orig = Image.open(task["photo"]).convert("RGB")
+        orig = src_img  # already exif_transpose'd at top of render()
         build_comparison_2(
             orig, result,
             stem.with_name(stem.name + "-comparison_2.png"),
