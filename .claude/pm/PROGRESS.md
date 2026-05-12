@@ -1,5 +1,19 @@
 # PROGRESS
 
+## 2026-05-11 — README, multi-batch, cond_scale sweep, pipeline fixes
+
+- #25 README.md: full pipeline docs — make.ps1 targets, batch.ps1 flags, multi-batch.ps1, profiles, DB, advanced CLI
+- #26 multi-batch.ps1: overnight queue runner; fixed batch.ps1 SourceRoot Resolve-Path; dry-run tree view; hashtable splatting fix
+- #17 cond_scale sweep: 5-variant sweep (1.0→2.0, seed 42) on sample-4; v3=1.5 preferred, v1=1.0 clean alternative; yoga_asana.yml updated to cond_scale 1.5
+- prompt overhaul: removed SD1.5 hacks (8k, "advanced"), added face/gender/age negatives, human/skin negatives, "head turned to match pose"
+- versioning bug fixed: next_free_stem was stripping version tag, causing silent overwrites on every run
+- sd_make.py: MIN_DIM=768 floor prevents sub-768px generation on small inputs
+- sd_make.py: full absolute paths in Saved/Metrics/Contact-sheets log lines
+- sd_make.py: output path logged at render() start
+- sd_make.py: per-task try/except — bad files report+continue, don't abort worklist
+- make_mannequin.py: profile name now recorded in metrics.json and DB
+- New profiles: yoga_asana_strong.yml (cond_scale 2.0), yoga_asana_cs_sweep.yml (5-step sweep)
+
 ## 2026-05-11 — SQLite revision history, DB-backed gallery, skip-existing
 
 - **#24 closed** — `src/db.py`: schema (source_images, runs, thumbnails), SHA256 identity, 150×150 thumbnail blobs, ingest-from-JSON, rating write, query helpers.

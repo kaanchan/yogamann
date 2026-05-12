@@ -11,6 +11,10 @@ BACKUPS/
 
 # Generated output images (too large for git)
 output/
+out/
+
+# Local Claude Code settings
+.claude/settings.local.json
 
 # Claude Code agent tmp staging (gitignored; pm/ is tracked)
 .claude/tmp/*
