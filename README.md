@@ -71,12 +71,12 @@ Set `$env:HF_TOKEN = 'hf_...'` before downloading for faster authenticated trans
 
 ---
 
-## batch.ps1 — full library runs
+## scripts/batch.ps1 — full library runs
 
-`batch.ps1` processes an external data library, mirroring its folder structure into the output directory. Use this for bulk runs over the full yoga deck.
+`scripts/batch.ps1` processes an external data library, mirroring its folder structure into the output directory. Use this for bulk runs over the full yoga deck.
 
 ```powershell
-.\batch.ps1 [-Source <path>] [-SourceRoot <path>] [-OutputRoot <path>]
+.\scripts\batch.ps1 [-Source <path>] [-SourceRoot <path>] [-OutputRoot <path>]
             [-PipelineProfile <name>] [-LogLevel <level>]
             [-Limit <n>] [-DryRun] [-Monitor] [-Overwrite]
 ```
@@ -97,19 +97,19 @@ Set `$env:HF_TOKEN = 'hf_...'` before downloading for faster authenticated trans
 
 ```powershell
 # Dry run — see what would be processed without using the GPU
-.\batch.ps1 -DryRun
+.\scripts\batch.ps1 -DryRun
 
 # Process up to 5 images from the default library, with GPU monitor
-.\batch.ps1 -Limit 5 -Monitor
+.\scripts\batch.ps1 -Limit 5 -Monitor
 
 # Process a single subfolder
-.\batch.ps1 -Source "D:\Temp\yogamann-data\Yoga Deck - Kaushalam Ways\Asanas\Vajrasana"
+.\scripts\batch.ps1 -Source "D:\Temp\yogamann-data\Yoga Deck - Kaushalam Ways\Asanas\Vajrasana"
 
 # Force-reprocess with a different profile
-.\batch.ps1 -Limit 10 -PipelineProfile yoga_asana_cs14 -Overwrite
+.\scripts\batch.ps1 -Limit 10 -PipelineProfile yoga_asana_cs14 -Overwrite
 
 # Full run, verbose logging
-.\batch.ps1 -LogLevel DEBUG
+.\scripts\batch.ps1 -LogLevel DEBUG
 ```
 
 > **Tip:** After a batch run, ingest and review with:
@@ -120,12 +120,12 @@ Set `$env:HF_TOKEN = 'hf_...'` before downloading for faster authenticated trans
 
 ---
 
-## multi-batch.ps1 — unattended overnight batch queue
+## scripts/multi-batch.ps1 — unattended overnight batch queue
 
-`multi-batch.ps1` queues multiple `batch.ps1` runs and ingests results automatically when done. Edit the `$batches` array in the script to define your folder queue, then start it before you sleep.
+`scripts/multi-batch.ps1` queues multiple `scripts/batch.ps1` runs and ingests results automatically when done. Edit the `$batches` array in the script to define your folder queue, then start it before you sleep.
 
 ```powershell
-.\multi-batch.ps1 [-OutputRoot <path>] [-PipelineProfile <name>] [-LogLevel <level>]
+.\scripts\multi-batch.ps1 [-OutputRoot <path>] [-PipelineProfile <name>] [-LogLevel <level>]
                [-Limit <n>] [-DryRun] [-Monitor] [-Overwrite]
 ```
 
@@ -139,7 +139,7 @@ Set `$env:HF_TOKEN = 'hf_...'` before downloading for faster authenticated trans
 | `-Monitor` | off | Launch GPU dashboard once for the whole run |
 | `-Overwrite` | off | Reprocess images that already have output |
 
-Edit the queue in `multi-batch.ps1` directly:
+Edit the queue in `scripts/multi-batch.ps1` directly:
 
 ```powershell
 $batches = @(
@@ -157,12 +157,12 @@ $batches = @(
 Sample commands:
 
 ```powershell
-.\multi-batch.ps1 -DryRun                # preview what would run — no GPU used
-.\multi-batch.ps1 -Monitor               # full overnight run with GPU dashboard
-.\multi-batch.ps1 -Limit 10 -Monitor     # cap at 10 images per folder set (testing)
+.\scripts\multi-batch.ps1 -DryRun                # preview what would run — no GPU used
+.\scripts\multi-batch.ps1 -Monitor               # full overnight run with GPU dashboard
+.\scripts\multi-batch.ps1 -Limit 10 -Monitor     # cap at 10 images per folder set (testing)
 ```
 
-After all batches complete, `multi-batch.ps1` automatically runs ingest. Review results with:
+After all batches complete, `scripts/multi-batch.ps1` automatically runs ingest. Review results with:
 
 ```powershell
 .\make.ps1 -Target review
@@ -206,7 +206,7 @@ neg_prompt: blurry, low quality, text, watermark
 Run it:
 
 ```powershell
-.\batch.ps1 -Source input\yoga-pose-sample-4.jpg -PipelineProfile yoga_asana_cs_sweep
+.\scripts\batch.ps1 -Source input\yoga-pose-sample-4.jpg -PipelineProfile yoga_asana_cs_sweep
 .\make.ps1 -Target ingest
 .\make.ps1 -Target review
 ```
