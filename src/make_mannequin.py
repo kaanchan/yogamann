@@ -108,7 +108,7 @@ def build_tasks(photo: pathlib.Path, cfg: Dict) -> List[Dict]:
         print(f"[warn] [{photo.name}] versions>1 but no varying params; generating v1 only")
         V = 1
 
-    stem0 = next_free_stem(photo.stem, f"--{pad_version(1,V)}.png")
+    stem0 = next_free_stem(photo.stem + f"--{pad_version(1,V)}", ".png")
     tasks = []
     for i in range(1, V + 1):
         vtag  = f"--{pad_version(i,V)}"
@@ -167,6 +167,7 @@ for token in kv_overrides:
 cfg = DEFAULT_PROFILE.copy()
 if args.profile:
     cfg.update(_read_profile(args.profile))
+    cfg["profile"] = args.profile
 cfg.update(overrides)
 
 # collect photos -------------------------------------------------------------

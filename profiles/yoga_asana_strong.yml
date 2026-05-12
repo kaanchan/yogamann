@@ -1,8 +1,7 @@
 steps: 25
-seed: null
-sheet_scale: 1.0
-cond_scale: 1.5       # DWPose ControlNet conditioning strength — sweep found 1.5 optimal
-guidance: 5.0         # SDXL runs lower CFG than SD 1.5
+seed: 42
+cond_scale: 2.0
+guidance: 7.0
 prompt: |
   wooden artist mannequin, pale ash wood, ball-jointed limbs,
   yoga pose, head turned to match pose,

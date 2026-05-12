@@ -83,6 +83,7 @@ def render(task: Dict, device: str, pipe) -> None:
 
     log.info("render — %s  steps=%d  guidance=%.1f  seed=%s",
              photo.name, steps, cfg["guidance"], cfg.get("seed", "random"))
+    log.info("output  → %s", Path(task["output_png"]).resolve())
 
     # ------------------------------------------------------------------
     # 1. CONTROLNET MASK  (DWPose)
@@ -120,10 +121,12 @@ def render(task: Dict, device: str, pipe) -> None:
     actual_seed = gen.initial_seed()
 
     w, h = src_img.size
-    # Scale down so the long side ≤ 1024 (SDXL native), then snap to nearest 64.
-    # max() keeps tiny inputs at a usable minimum.
+    # Clamp generation size: long side between 768 (SDXL quality floor) and 1024 (native).
+    # Small source photos are upscaled to the floor so SDXL doesn't generate at sub-768px.
     _MAX_DIM = 1024
-    _scale = min(1.0, _MAX_DIM / max(w, h))
+    _MIN_DIM = 768
+    _long = max(w, h)
+    _scale = max(_MIN_DIM / _long, min(1.0, _MAX_DIM / _long))
     w64 = max(64, round(w * _scale / 64) * 64)
     h64 = max(64, round(h * _scale / 64) * 64)
 
@@ -155,7 +158,7 @@ def render(task: Dict, device: str, pipe) -> None:
         meta.add_text(f"cfg/{k}", str(v))
     Path(task["output_png"]).parent.mkdir(parents=True, exist_ok=True)
     result.save(task["output_png"], pnginfo=meta)
-    log.info("Saved → %s", Path(task["output_png"]).name)
+    log.info("Saved → %s", Path(task["output_png"]).resolve())
 
     metrics = {
         "timestamp"     : time.strftime("%Y-%m-%dT%H:%M:%S"),
@@ -182,7 +185,7 @@ def render(task: Dict, device: str, pipe) -> None:
     }
     metrics_path = Path(task["output_png"]).with_suffix(".metrics.json")
     metrics_path.write_text(json.dumps(metrics, indent=2))
-    log.info("Metrics → %s", metrics_path.name)
+    log.info("Metrics → %s", metrics_path.resolve())
 
     # Best-effort DB insert — never blocks or crashes the pipeline
     try:
@@ -216,7 +219,9 @@ def render(task: Dict, device: str, pipe) -> None:
             stem.with_name(stem.name + "-comparison_4.png"),
             seed, scale,
         )
-        log.debug("Contact sheets saved")
+        log.debug("Contact sheets saved → %s  |  %s",
+                  stem.with_name(stem.name + "-comparison_2.png"),
+                  stem.with_name(stem.name + "-comparison_4.png"))
     except Exception as e:
         log.warning("contact-sheet skipped: %s", e)
 
@@ -245,9 +250,16 @@ if __name__ == "__main__":
         for t in tasks:
             if "steps" in t["cfg"] and t["cfg"]["steps"] is not None:
                 t["cfg"]["steps"] = int(t["cfg"]["steps"])
+        failed = []
         for t in tasks:
-            render(t, device, pipe)
-        sys.exit()
+            try:
+                render(t, device, pipe)
+            except Exception as e:
+                log.error("SKIP %s — %s: %s", Path(t["photo"]).name, type(e).__name__, e)
+                failed.append(t["photo"])
+        if failed:
+            log.warning("%d task(s) failed: %s", len(failed), ", ".join(Path(p).name for p in failed))
+        sys.exit(1 if failed else 0)
 
     single = {
         "photo": args.photo,
