@@ -20,14 +20,14 @@ test:
 	HF_HUB_OFFLINE=1 $(PYTHON) src/make_mannequin.py $(SAMPLE) \
 	    --profile $(PROFILE)
 	$(PYTHON) src/make_gallery.py
-	$(OPEN) out/index.html
+	$(OPEN) output/index.html
 
 # All reference images + gallery
 test-all:
 	HF_HUB_OFFLINE=1 $(PYTHON) src/make_mannequin.py --folder input \
 	    --profile $(PROFILE)
 	$(PYTHON) src/make_gallery.py
-	$(OPEN) out/index.html
+	$(OPEN) output/index.html
 
 # Hardware + import diagnostics
 diag:
@@ -36,11 +36,11 @@ diag:
 # Regenerate gallery HTML and open browser
 gallery:
 	$(PYTHON) src/make_gallery.py
-	$(OPEN) out/index.html
+	$(OPEN) output/index.html
 
 # Open existing gallery without regenerating
 open:
-	$(OPEN) out/index.html
+	$(OPEN) output/index.html
 
 # Import .metrics.json files into yogamann.db
 ingest:

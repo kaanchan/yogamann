@@ -11,7 +11,7 @@ BACKUPS/
 
 # Generated output images (too large for git)
 output/
-out/
+!output/README.md
 
 # Local Claude Code settings
 .claude/settings.local.json

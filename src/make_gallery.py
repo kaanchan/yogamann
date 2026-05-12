@@ -1,10 +1,10 @@
 """
-make_gallery.py — scan out/ for comparison PNGs and write out/index.html.
+make_gallery.py — scan output/ for comparison PNGs and write output/index.html.
 
 Usage
 -----
-    python src/make_gallery.py                   # uses out/ → out/index.html
-    python src/make_gallery.py --out-dir out/run1
+    python src/make_gallery.py                       # uses output/ → output/index.html
+    python src/make_gallery.py --out-dir output/run1
 
 Opens directly in any browser via file:// — no server required.
 Reads cfg/* metadata embedded in each PNG by sd_make.py.
@@ -161,7 +161,7 @@ def build_gallery(out_dir: pathlib.Path) -> pathlib.Path:
 
 if __name__ == "__main__":
     cli = argparse.ArgumentParser(description="Build browser gallery from comparison PNGs")
-    cli.add_argument("--out-dir", default="out", help="folder containing *-comparison*.png files")
+    cli.add_argument("--out-dir", default="output", help="folder containing *-comparison*.png files")
     args = cli.parse_args()
 
     out_dir = pathlib.Path(args.out_dir).resolve()

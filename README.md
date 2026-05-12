@@ -53,8 +53,8 @@ Set `$env:HF_TOKEN = 'hf_...'` before downloading for faster authenticated trans
 | `test` | Generate mannequin for one sample image → open HTML gallery |
 | `test-all` | Generate mannequins for all `input/` images → open HTML gallery |
 | `diag` | Hardware + import diagnostics (GPU, CUDA, model availability) |
-| `gallery` | Regenerate `out/index.html` from existing outputs → open browser |
-| `open` | Open existing `out/index.html` without regenerating |
+| `gallery` | Regenerate `output/index.html` from existing outputs → open browser |
+| `open` | Open existing `output/index.html` without regenerating |
 | `ingest` | Import all `.metrics.json` files in `OutputRoot` into `yogamann.db` |
 | `review` | Launch the Streamlit review gallery (reads `yogamann.db`) |
 
@@ -269,7 +269,7 @@ python src/make_mannequin.py input/yoga-pose-sample-4.jpg --profile yoga_asana \
 |------|-------------|
 | `photo` | One or more image paths (positional) |
 | `--folder` | Process all images in this directory |
-| `--output-dir` | Output directory (default: `out/`) |
+| `--output-dir` | Output directory (default: `output/`) |
 | `--profile` | Profile name or path |
 | `--dump-worklist <file>` | Write planned task list to JSON |
 | `--dump-only` | Exit after writing worklist, no generation |

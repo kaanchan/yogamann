@@ -26,7 +26,7 @@ switch ($Target) {
             & $Python src/make_mannequin.py $Sample --profile $PipelineProfile --log-level $LogLevel
         }
         Invoke-Step "Build gallery" { & $Python src/make_gallery.py }
-        Start-Process "out\index.html"
+        Start-Process "output\index.html"
     }
     "test-all" {
         $env:HF_HUB_OFFLINE = "1"
@@ -34,7 +34,7 @@ switch ($Target) {
             & $Python src/make_mannequin.py --folder input --profile $PipelineProfile --log-level $LogLevel
         }
         Invoke-Step "Build gallery" { & $Python src/make_gallery.py }
-        Start-Process "out\index.html"
+        Start-Process "output\index.html"
     }
     "diag" {
         Invoke-Step "Hardware + import diagnostics" {
@@ -43,10 +43,10 @@ switch ($Target) {
     }
     "gallery" {
         Invoke-Step "Build gallery" { & $Python src/make_gallery.py }
-        Start-Process "out\index.html"
+        Start-Process "output\index.html"
     }
     "open" {
-        Start-Process "out\index.html"
+        Start-Process "output\index.html"
     }
     "ingest" {
         Invoke-Step "Ingest .metrics.json → yogamann.db ($OutputRoot)" {
