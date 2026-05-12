@@ -39,14 +39,15 @@ Write-Host "OutputRoot : $OutputRoot"     -ForegroundColor DarkGray
 if ($DryRun) { Write-Host "[DRY RUN — no images will be generated]" -ForegroundColor Yellow }
 
 # ── Optional monitor window ────────────────────────────────────────────────────
+$monitorProc = $null
 if ($Monitor) {
     $monitorScript = Join-Path $PSScriptRoot "monitor.ps1"
     if (-not (Test-Path $monitorScript)) {
         Write-Host "[monitor] Script not found at $monitorScript — skipping" -ForegroundColor Yellow
     } else {
         try {
-            Start-Process pwsh -ArgumentList "-NoExit", "-File", $monitorScript -ErrorAction Stop
-            Write-Host "[monitor] Launched in new terminal" -ForegroundColor DarkCyan
+            $monitorProc = Start-Process pwsh -ArgumentList "-NoExit", "-File", $monitorScript -PassThru -ErrorAction Stop
+            Write-Host "[monitor] Launched in new terminal (PID $($monitorProc.Id))" -ForegroundColor DarkCyan
         } catch {
             Write-Host "[monitor] Failed to launch: $_" -ForegroundColor Yellow
         }
@@ -280,4 +281,8 @@ try {
 
 } finally {
     Invoke-Cleanup
+    if ($monitorProc -and -not $monitorProc.HasExited) {
+        Write-Host "[monitor] Stopping monitor (PID $($monitorProc.Id))..." -ForegroundColor DarkCyan
+        $monitorProc.Kill()
+    }
 }

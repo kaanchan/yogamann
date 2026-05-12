@@ -34,7 +34,6 @@ $batches = @(
 )
 # ───────────────────────────────────────────────────────────────────────────────
 
-$Python     = ".\.venv\Scripts\python.exe"
 $BatchScript = Join-Path $PSScriptRoot "batch.ps1"
 $MakeScript  = Join-Path $PSScriptRoot "make.ps1"
 
@@ -50,12 +49,13 @@ if ($Overwrite) { Write-Host "   [OVERWRITE — will reprocess existing outputs]
 Write-Host ""
 
 # Launch GPU monitor once for the whole run
+$monitorProc = $null
 if ($Monitor) {
     $monitorScript = Join-Path $PSScriptRoot "monitor.ps1"
     if (Test-Path $monitorScript) {
         try {
-            Start-Process pwsh -ArgumentList "-NoExit", "-File", $monitorScript -ErrorAction Stop
-            Write-Host "[monitor] Launched in new terminal" -ForegroundColor DarkCyan
+            $monitorProc = Start-Process pwsh -ArgumentList "-NoExit", "-File", $monitorScript -PassThru -ErrorAction Stop
+            Write-Host "[monitor] Launched in new terminal (PID $($monitorProc.Id))" -ForegroundColor DarkCyan
         } catch {
             Write-Host "[monitor] Failed to launch: $_" -ForegroundColor Yellow
         }
@@ -108,6 +108,11 @@ if (-not $DryRun) {
     Write-Host ""
     Write-Host "==> Done. Launch the review gallery with:" -ForegroundColor Green
     Write-Host "    .\make.ps1 -Target review" -ForegroundColor White
+}
+
+if ($monitorProc -and -not $monitorProc.HasExited) {
+    Write-Host "[monitor] Stopping monitor (PID $($monitorProc.Id))..." -ForegroundColor DarkCyan
+    $monitorProc.Kill()
 }
 
 if ($totalFailed -gt 0) {

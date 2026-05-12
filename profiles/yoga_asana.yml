@@ -1,8 +1,8 @@
 steps: 25
-seed: null
+seed: 42
 sheet_scale: 1.0
 cond_scale: 1.5       # DWPose ControlNet conditioning strength — sweep found 1.5 optimal
-guidance: 5.0         # SDXL runs lower CFG than SD 1.5
+guidance: 7.0         # sweep (cs_sweep v3) confirmed 7.0 produces neutral background
 prompt: |
   wooden artist mannequin, pale ash wood, ball-jointed limbs,
   yoga pose, head turned to match pose,
