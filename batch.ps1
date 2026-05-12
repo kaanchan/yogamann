@@ -27,8 +27,8 @@ $env:YOGAMANN_LOG_LEVEL = $LogLevel
 $env:HF_HUB_OFFLINE     = "1"
 
 # ── Resolve paths ──────────────────────────────────────────────────────────────
-$ResolvedSource = (Resolve-Path $Source -ErrorAction Stop).Path.TrimEnd('\', '/')
-$SourceRoot     = $SourceRoot.TrimEnd('\', '/')
+$ResolvedSource = (Resolve-Path $Source     -ErrorAction Stop).Path.TrimEnd('\', '/')
+$SourceRoot     = (Resolve-Path $SourceRoot -ErrorAction Stop).Path.TrimEnd('\', '/')
 $OutputRoot     = $OutputRoot.TrimEnd('\', '/')
 $isFile         = Test-Path $ResolvedSource -PathType Leaf
 
@@ -175,6 +175,66 @@ try {
                 Where-Object { $_.FullName -notlike "$OutputRoot*" -and $_.Name -notlike "yogamann-output*" } |
                 Select-Object -ExpandProperty FullName
         )
+
+        # ── Dry-run tree view ──────────────────────────────────────────────────────
+        if ($DryRun) {
+            $plan      = [System.Collections.Generic.List[PSCustomObject]]::new()
+            $remaining = $Limit
+
+            foreach ($d in $dirs) {
+                if ($Limit -gt 0 -and $remaining -le 0) { break }
+
+                $imgs = Get-ImageFiles $d
+                if (-not $imgs) { continue }
+
+                if (-not $Overwrite) {
+                    $outDir  = Get-OutputDir $d
+                    $pending = $imgs | Where-Object { -not (Test-OutputExists $_ $outDir) }
+                    $imgs    = $pending
+                }
+                if (-not $imgs) { continue }
+
+                $batch = if ($Limit -gt 0 -and @($imgs).Count -gt $remaining) {
+                    $imgs | Select-Object -First $remaining
+                } else { $imgs }
+
+                $plan.Add([PSCustomObject]@{
+                    Dir    = $d
+                    Images = @($batch)
+                    OutDir = Get-OutputDir $d
+                })
+                if ($Limit -gt 0) { $remaining -= @($batch).Count }
+            }
+
+            $totalImgs = ($plan | ForEach-Object { $_.Images.Count } | Measure-Object -Sum).Sum
+            $limitNote = if ($Limit -gt 0) { "  (limit: $Limit)" } else { "" }
+            Write-Host ""
+            if ($plan.Count -eq 0) {
+                Write-Host "[DRY RUN] Nothing to process — all outputs exist, or no images found." -ForegroundColor Yellow
+            } else {
+                Write-Host "[DRY RUN] Planned: $($plan.Count) folder(s)  ·  $totalImgs image(s)$limitNote" -ForegroundColor Yellow
+                Write-Host ""
+                for ($i = 0; $i -lt $plan.Count; $i++) {
+                    $item     = $plan[$i]
+                    $rel      = if ($item.Dir -eq $ResolvedSource) { "." }
+                                else { $item.Dir.Substring($ResolvedSource.Length).TrimStart('\', '/') }
+                    $depth    = if ($rel -eq '.') { 0 } else { ($rel -split '[/\\]').Count }
+                    $indent   = '  ' * $depth
+                    $isLast   = ($i -eq $plan.Count - 1)
+                    $dPrefix  = if ($isLast) { '└─ ' } else { '├─ ' }
+                    $cPrefix  = if ($isLast) { '   ' } else { '│  ' }
+                    $relLabel = if ($rel -eq '.') { '[root]' } else { "$rel\" }
+                    Write-Host "$indent$dPrefix$relLabel" -ForegroundColor Cyan -NoNewline
+                    Write-Host "  →  $($item.OutDir)" -ForegroundColor DarkGray
+                    $imgs = $item.Images
+                    for ($j = 0; $j -lt $imgs.Count; $j++) {
+                        $iPrefix = if ($j -eq $imgs.Count - 1) { "$indent$cPrefix└─ " } else { "$indent$cPrefix├─ " }
+                        Write-Host "$iPrefix$($imgs[$j].Name)" -ForegroundColor Gray
+                    }
+                }
+            }
+            exit 0
+        }
 
         $processed = 0; $skipped = 0; $totalImages = 0; $alreadyDone = 0
         $remaining = $Limit   # 0 = unlimited
