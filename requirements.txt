@@ -14,7 +14,8 @@ torch>=2.6.0
 torchvision
 
 diffusers>=0.29.0
-transformers>=4.41
+# transformers pinned to 4.49.0 — see docs/architecture-decisions.md ADR-001 + ADR-002
+transformers==4.49.0
 safetensors>=0.3.1
 huggingface-hub>=0.33
 accelerate

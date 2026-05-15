@@ -6,6 +6,111 @@ differently next time.
 
 ---
 
+## 2026-05-15 (eve, post-research)
+
+### ADR-003 — Final empirical pin: `transformers==4.49.0`, 4 of 5 VLMs working
+
+**Decision:** `transformers==4.49.0` pinned exactly (not a range) in `pyproject.toml`
+and `requirements.txt`. This is simultaneously the **floor** (Qwen2.5-VL was added
+in 4.49.0) and the **practical ceiling** (4.50.0+ refactors break the three
+`trust_remote_code` VLMs we care about). 4.49.0 has no patch releases — it's a
+singleton, hence the `==` rather than `>=4.49,<4.50`.
+
+**Empirical results on this pin:**
+
+| Model                  | Status | Notes |
+|------------------------|--------|-------|
+| Qwen2.5-VL-7B-Instruct | working | native; rating="good" |
+| InternVL2.5-8B-MPO     | working | bnb 4-bit works; rating="poor" |
+| Molmo-7B-D-0924        | working | needed fp16 dtype cast in `_infer_molmo`; rating="acceptable" |
+| MiniCPM-V-2.6          | working | needed numpy-array normalize() monkeypatch; rating parsed |
+| MiniCPM-o-2.6          | **blocked** | bnb 4-bit + Qwen2 audio backbone init clash |
+
+**Why earlier candidate pins failed:**
+
+- `transformers==4.57.6` (initial `>=4.49,<5` guess): InternVL hit
+  `'InternLM2ForCausalLM' has no attribute 'generate'` because v4.50 stopped
+  auto-inheriting `GenerationMixin` from `PreTrainedModel`. Also DynamicCache
+  refactor broke InternVL's `past_key_values[0][0].shape[2]` legacy indexing.
+- `transformers==4.52.4` (Gemini synthesis): MiniCPM-V/o hit
+  `'Resampler' object has no attribute '_initialize_weights'` because v4.50
+  introduced `smart_apply` walking submodules calling a method their custom
+  Resampler class never defined.
+
+**Why 4.49.0 specifically:** Both refactors above happened in 4.50. Sticking at
+the last pre-refactor release sidesteps them in one move.
+
+**Three patches in `_infer_*` to get the trust_remote_code models running:**
+
+1. **`_infer_molmo`** — bnb-quantized residual modules are fp16; processor
+   returns fp32 inputs. Cast pixel_values to `model.dtype` before
+   `generate_from_batch`. ~3 LoC.
+2. **`_infer_minicpm_v`** — MiniCPM-V's `MiniCPMVImageProcessor` passes
+   `np.ndarray` mean/std to `transformers.image_transforms.normalize`. v4.49's
+   normalize() does `isinstance(mean, Sequence)` — ndarray fails this check,
+   so mean gets replicated 3x into a (3,3) tensor that won't broadcast.
+   Monkeypatch normalize() (both at `image_transforms.normalize` and the
+   re-import in `image_processing_utils`) to coerce ndarray → list. ~10 LoC.
+3. **`_extract_user_text` helper** — bug we'd been carrying: the retry path
+   passes `content=<string>` rather than `content=[{"type": "text", ...}]`.
+   The original extraction crashed. Made all dispatchers robust to both shapes.
+
+**MiniCPM-o-2.6 — the one that refuses to play:**
+
+MiniCPM-o uses a Qwen2 audio-language module as part of its omni-modal stack.
+When loading with `BitsAndBytesConfig(load_in_4bit=True)`, the Qwen2 backbone's
+native `_init_weights` (in `transformers.models.qwen2.modeling_qwen2`) calls
+`.normal_(mean=0, std=...)` on already-bnb-quantized weights, which are
+uint8/Byte tensors. PyTorch's `normal_kernel_cpu` is not implemented for Byte
+dtype. This is a bnb × native-Qwen2 interaction inside a custom-code wrapper —
+none of the monkeypatches that fixed InternVL/Molmo/MiniCPM-V are in the right
+place to fix this. Possible paths:
+- (a) Disable bnb 4-bit for MiniCPM-o (load in bf16 — ~16 GB VRAM)
+- (b) Find an even older transformers pin where this init path is different
+- (c) Vendor-fork MiniCPM-o's modeling file to suppress weight init for
+  already-quantized modules
+- (d) Use the vision-only sibling MiniCPM-V-2.6 (we are; it works)
+
+Park MiniCPM-o-2.6 in `profiles/vlm.yml` (commented out, points here for
+context). Reassess only if the user has a specific reason to need its omni
+capabilities — for pose-grading-on-images, MiniCPM-V is the right pick anyway.
+
+**Considerations for current model choices (#29 VLM suite):**
+
+- The dispatcher pattern (`inference_style:` in `vlm.yml`) is the right shape;
+  adding a new VLM family is ~30 LoC + a `_infer_<style>` function.
+- All three custom-code models needed *small* per-model patches to actually
+  work, not just the loader fallbacks. Plan for "patch budget" when picking
+  a new `trust_remote_code` VLM in the future — assume 1-3 small workarounds
+  to get past version-coupling rot, beyond just loading.
+- Schema compliance varies wildly across the four working models. Qwen and
+  InternVL emit the exact JSON we ask for; MiniCPM-V invents its own rating
+  scale; Molmo emits the right keys but populates them differently. This is
+  a prompt-engineering issue, not an infrastructure one — handle in a future
+  iteration.
+
+**Considerations for future choices (#33 pose pipeline alternatives, and beyond):**
+
+- The "dependency closure" criterion from ADR-001 is now sharpened: read every
+  modeling file in the candidate model's HF cache *before* committing to it.
+  Look for: unconditional `import` of heavy deps (tensorflow, deepspeed,
+  flash_attn), references to private transformers symbols (anything starting
+  with `_`), bnb-incompatible weight-init patterns.
+- Prefer the "vision-only" variant of any model family that ships both vision
+  and omni versions. The omni variant pulls in a whole audio stack (Whisper,
+  TTS, vector quantization) plus an additional language backbone that doubles
+  the surface area for version-pinning conflicts.
+- A model that takes more than 2 monkeypatches to make work on the pinned
+  transformers version is signalling that it will rot fast. Document the
+  patches, run the comparison, then plan to drop or replace within a quarter.
+
+**Related:** #32 (transformers pinning — this completes the empirical work),
+#29 (VLM annotation pipeline — now has 4 working comparators),
+[`src/vlm_inference.py`](../src/vlm_inference.py),
+[`profiles/vlm.yml`](../profiles/vlm.yml)
+
+---
+
 ## 2026-05-15
 
 ### ADR-002 — Per-model inference dispatchers: pattern works, but `trust_remote_code` rot is orthogonal

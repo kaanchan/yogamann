@@ -136,6 +136,16 @@ def _resize_for_vlm(img: Image.Image, max_side: int = 1024) -> Image.Image:
     return img.resize((new_w, new_h), Image.LANCZOS)
 
 
+def _extract_user_text(user_msg: dict) -> str:
+    """Pull the user prompt out of a message. Handles both the structured form
+    {"content": [{"type": "text", "text": "..."}]} and the plain-string retry
+    form {"content": "..."}."""
+    content = user_msg["content"]
+    if isinstance(content, str):
+        return content
+    return next(c["text"] for c in content if c.get("type") == "text")
+
+
 # ── InternVL-style inference (custom model.chat API) ─────────────────────────
 def _internvl_preprocess(img: Image.Image, input_size: int = 448):
     """InternVL preprocessing: resize to square + ImageNet normalize -> fp32 CPU tensor.
@@ -186,7 +196,7 @@ def _infer_internvl(model, repo: str, messages: list, images: list, config: dict
     num_patches_list = [1] * len(images)
 
     user_msg = messages[-1]
-    user_text = next(c["text"] for c in user_msg["content"] if c["type"] == "text")
+    user_text = _extract_user_text(user_msg)
     question = (
         "\n".join(f"Image-{i+1}: <image>" for i in range(len(images)))
         + "\n" + user_text
@@ -218,14 +228,70 @@ def _infer_molmo(model, repo: str, messages: list, images: list, config: dict) -
     images = [_resize_for_vlm(img, max_image_side) for img in images]
 
     user_msg = messages[-1]
-    user_text = next(c["text"] for c in user_msg["content"] if c["type"] == "text")
+    user_text = _extract_user_text(user_msg)
 
     inputs = processor.process(images=images, text=user_text)
     inputs = {k: v.to(model.device).unsqueeze(0) for k, v in inputs.items()}
+    # Cast floating-point tensors to model dtype (bnb residual modules are fp16);
+    # processor.process returns fp32 which clashes with the model's Half params.
+    model_dtype = next(model.parameters()).dtype
+    inputs = {
+        k: (v.to(model_dtype) if v.is_floating_point() else v)
+        for k, v in inputs.items()
+    }
     gen_cfg = GenerationConfig(max_new_tokens=max_new_tokens, stop_strings="<|endoftext|>")
     output = model.generate_from_batch(inputs, gen_cfg, tokenizer=processor.tokenizer)
     new_tokens = output[0, inputs["input_ids"].size(1):]
     return processor.tokenizer.decode(new_tokens, skip_special_tokens=True)
+
+
+_MINICPM_V_NORMALIZE_PATCHED = False
+
+
+def _patch_minicpm_v_normalize_compat() -> None:
+    """transformers >=4.49 normalize() requires mean/std to be collections.abc.Sequence;
+    MiniCPM-V's custom image processor passes numpy arrays (set via np.array() in its
+    __init__). np.ndarray fails the Sequence isinstance check, falls into the scalar
+    branch which replicates a (3,) array 3 times giving a (3,3) mean — broadcast then
+    fails against the (H, W, 3) image. Wrap normalize() to coerce ndarray -> list."""
+    global _MINICPM_V_NORMALIZE_PATCHED
+    if _MINICPM_V_NORMALIZE_PATCHED:
+        return
+    import numpy as np
+    import transformers.image_transforms as it
+    import transformers.image_processing_utils as ipu
+    _orig = it.normalize
+    def _patched_normalize(image, mean, std, *args, **kwargs):
+        if isinstance(mean, np.ndarray):
+            mean = mean.tolist()
+        if isinstance(std, np.ndarray):
+            std = std.tolist()
+        return _orig(image, mean, std, *args, **kwargs)
+    # Patch both the canonical module function AND the re-import inside
+    # image_processing_utils (BaseImageProcessor.normalize calls the local name).
+    it.normalize = _patched_normalize
+    ipu.normalize = _patched_normalize
+    _MINICPM_V_NORMALIZE_PATCHED = True
+
+
+# ── MiniCPM-V-style inference (model.chat with msgs list) ────────────────────
+def _infer_minicpm_v(model, repo: str, messages: list, images: list, config: dict) -> str:
+    """MiniCPM-V uses model.chat(image=None, msgs=[...], tokenizer=) — multi-image
+    is encoded by putting all PIL images directly into msg['content'] list. The
+    model's internal preprocessor does its own slice-based tiling; do NOT pre-resize."""
+    _patch_minicpm_v_normalize_compat()
+    offline = os.environ.get("HF_HUB_OFFLINE") == "1"
+    tokenizer = _get_tokenizer(repo, revision=config.get("revision"), offline=offline)
+    max_new_tokens = config.get("max_new_tokens", 512)
+
+    user_msg = messages[-1]
+    user_text = _extract_user_text(user_msg)
+
+    msgs = [{"role": "user", "content": [*images, user_text]}]
+    return model.chat(
+        image=None, msgs=msgs, tokenizer=tokenizer,
+        max_new_tokens=max_new_tokens,
+    )
 
 
 # ── Inference (Qwen-style — processor.apply_chat_template + model.generate) ──
@@ -300,6 +366,8 @@ def annotate(
         infer_fn = lambda msgs: _infer_internvl(model, config["repo"], msgs, images, config)
     elif style == "molmo":
         infer_fn = lambda msgs: _infer_molmo(model, config["repo"], msgs, images, config)
+    elif style == "minicpm_v":
+        infer_fn = lambda msgs: _infer_minicpm_v(model, config["repo"], msgs, images, config)
     else:
         infer_fn = lambda msgs: _infer(model, processor, msgs, images, config)
 

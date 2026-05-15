@@ -6,7 +6,10 @@ requires-python = ">=3.13"
 dependencies = [
     # diffusion pipeline
     "diffusers>=0.29.0",
-    "transformers>=4.41",
+    # transformers pinned to 4.49.0 — see docs/architecture-decisions.md ADR-001
+    # and ADR-002. v4.49 is the floor (Qwen2.5-VL requires it) and the ceiling
+    # (>=4.50 breaks InternVL/MiniCPM-V/Molmo via PreTrainedModel refactors).
+    "transformers==4.49.0",
     "safetensors>=0.3.1",
     "huggingface-hub>=0.33",
     "accelerate",
