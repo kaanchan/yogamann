@@ -1,5 +1,46 @@
 # PROGRESS
 
+## 2026-05-13 — PM reconciliation, push to remote, ctx-upgrade
+
+- Confirmed #25 (README, 3c6b800) and #26 (multi-batch, d428c63) already committed from prior sessions
+- Pushed master → origin/main: 9 commits now live (e221e6c..976145d)
+- ctx-upgrade: v1.0.134 (already latest); all hooks PASS, doctor PASS
+- PM docs (PENDING-TASK, PROGRESS, TODO) reconciled with May 12 session work
+
+## 2026-05-12 — Gallery major UI sprint + VLM design spec (#27, #28, #29)
+
+- SQLite threading crash fixed (ProgrammingError) in gallery.py
+- Gallery: stopped pulsing/throbbing; pagination added; ratings → radio buttons
+- Added `misaligned` pane (body part checkboxes), Notes field, metadata at top of cards
+- Multi-user auth: login/signup, `users` table, single-step account creation confirmation blocker
+- Fixed IndexError on misaligned field, `no such table: users` error
+- Notes + patterns pane added side-by-side layout
+- OBS-NNN pattern system discussed (for tagging recurring generation artifacts)
+- Deep-research VLM prompt written: `.claude/tmp/deep-search-vision-models.md`
+- VLM design spec committed: `docs/superpowers/specs/2026-05-12-vlm-pose-analysis-design.md` (6388d7b, `feature/vlm-analysis`)
+- Gallery commits: ccc8570 (#27 multi-user annotations, #28 patterns catalogue, gallery UX)
+- #29 VLM open — spec done, implementation plan not yet written
+
+## 2026-05-12 — Repo housekeeping + VLM research organization (pre-#29 groundwork)
+
+### Completed
+- Audited BACKUPS/: v1 used SD 1.5 + MediaPipe (not SDXL + DWPose); profile drifted on all params (steps 30→25, cond_scale 1.0→1.5, guidance 7.5→7.0, prompts rewritten)
+- profiles/yoga_asana_v1_archival.yml — fully annotated infrastructure + param diff
+- Back-dated commit 2025-07-20: docs/archive/v1-mediapipe-2025-07-20/ preserves full v1 source in git history
+- docs/reference-outputs/v1-baseline/ (19 PNGs) + batch-feature mannequin committed; v1 sample added to README
+- docs/observations/ — pipeline-observations.md + observations.json committed (were untracked)
+- Scripts reorganized: batch.ps1 + multi-batch.ps1 + monitor.ps1 → scripts/
+- docs/research/issue-29-vlm-pose-analysis/ — all 4 VLM reports added
+- BACKUPS/ deleted (fully preserved via archive + reference-outputs)
+- Makefile synced with make.ps1 (ingest, review, download + cross-platform OS detection)
+- out/ → output/ consolidated; all scripts, README, .gitignore updated
+- docs/ideal-targets/ — 3 reference mannequin images + README
+- output/README.md tracked via .gitignore negation
+- All commits pushed (94065fc..976145d)
+
+### Issues
+- #29 open — VLM analysis: brainstorming complete, design doc pending next session
+
 ## 2026-05-11 — README, multi-batch, cond_scale sweep, pipeline fixes
 
 - #25 README.md: full pipeline docs — make.ps1 targets, batch.ps1 flags, multi-batch.ps1, profiles, DB, advanced CLI
