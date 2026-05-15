@@ -23,6 +23,7 @@ dependencies = [
     "numpy",
     # config
     "pyyaml",
+    "psutil>=5.9",
     # torch — pulled from nightly cu130 index below
     "torch",
     "torchvision",
