@@ -497,6 +497,16 @@ def get_vlm_annotations(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.R
     ).fetchall()
 
 
+def count_vlm_annotations(conn: sqlite3.Connection, model_id: str) -> int:
+    """Return the number of vlm_annotations rows for a model — used to
+    report 'already done, skipping' counts at the start of a batch."""
+    row = conn.execute(
+        "SELECT COUNT(*) FROM vlm_annotations WHERE model_id = ?",
+        (model_id,),
+    ).fetchone()
+    return row[0] if row else 0
+
+
 def get_unanalyzed_runs(
     conn: sqlite3.Connection,
     model_id: str,
