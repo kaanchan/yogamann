@@ -1,5 +1,17 @@
 # PROGRESS
 
+## 2026-05-15 (late eve) — VLM batch orchestration refactor (#32)
+
+- Inverted `compare_vlm.py` loop from image-major to model-major. Each model phase: load → annotate K-image micro-batches → evict. Total cold-load cost is now N_models, not N_models × N_images.
+- Added `evict_model(key)` + `evict_all()` to `vlm_inference.py` — public eviction so callers manage GPU memory between phases. Verified empirically: 0.00 → 5.82 GB (load) → 0.00 GB (evict) — full VRAM freed.
+- DB-driven resumability via existing `get_unanalyzed_runs`. Each `save_vlm_annotation` auto-commits, so kill-and-resume picks up precisely from the last completed image. Pair-atomic state model — no session/batch ID, idempotent at the (run_id, model_id) level.
+- New CLI flags on `compare_vlm.py`: `--models`, `--force`, `--batch-size` (default 25).
+- New module `src/_batch_utils.py` with `chunked()` + `format_summary()`, pytest-covered (7/7 in 0.05s). New DB helper `count_vlm_annotations(conn, model_id)`.
+- Architecture-decisions ADR-004 added. ADR-003 + PROMPT.md corrected to 15.92 GB VRAM (RTX 5080 Laptop), not 24 GB. The bf16 MiniCPM-o fallback path in ADR-003 marked not-viable on this hardware.
+- Acceptance smoke (commit aec7524): 4 models × 10 images, 28 new annotations, 12 skipped, 0 errors, 382.9s total wall clock. No OOM. Per-model phase elapsed: Qwen 95s, InternVL 51s, MiniCPM-V 113s, Molmo 124s.
+- Plan written via `superpowers:writing-plans` skill at `docs/superpowers/plans/2026-05-15-vlm-batch-orchestration.md`. Executed in 6 waves with parallel sub-agents on independent tasks (some Bash-permission denied; consolidated inline in main session).
+- Commits: `48e531c` (evict helpers), `1157814` (db count), `da72d3e` (_batch_utils+tests), `21a679f` (flags), `aec7524` (loop inversion), `39036a3` (docs + ADR-004).
+
 ## 2026-05-15 (eve) — transformers v5 breakage + per-model dispatcher investigation (#32), feature/v4-downgrade-testing
 
 - Diagnosed: `(yogamann)` venv had `transformers==5.8.0` (unpinned install). v5 silently broke 3 of 4 VLMs via `trust_remote_code` rot.
