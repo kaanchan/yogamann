@@ -9,6 +9,17 @@ $Sample  = "input\yoga-pose-sample-4.jpg"
 $PipelineProfile = "yoga_asana"
 $env:YOGAMANN_LOG_LEVEL = $LogLevel
 
+# Load .env if present (gitignored — keeps secrets out of the repo)
+$EnvFile = Join-Path $PSScriptRoot ".env"
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | Where-Object { $_ -match '^\s*\w' } | ForEach-Object {
+        $k, $v = $_ -split '=', 2
+        if (-not [System.Environment]::GetEnvironmentVariable($k.Trim())) {
+            [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), "Process")
+        }
+    }
+}
+
 function Invoke-Step {
     param([string]$Label, [scriptblock]$Block)
     Write-Host "`n==> $Label" -ForegroundColor Cyan
