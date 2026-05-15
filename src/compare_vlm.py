@@ -5,24 +5,33 @@ DB-driven resumability: skips (run_id, model_id) pairs already in vlm_annotation
 unless --force. Each annotation auto-commits via save_vlm_annotation, so a
 killed process resumes precisely from the last completed image.
 
+Real-time metrics:
+- Top-line batch ETA at start (sum of per-model phase ETAs from history)
+- Per-phase header with historical avg + sample count
+- Per-image one-liner: idx/total, run_id, elapsed, rating, steady avg, ETA
+- Per-micro-batch summary (every K images): ok/err/remain counts
+- Per-phase summary: total elapsed, steady-state s/img, % vs historical
+- Final batch summary table
+
 Usage:
-    # Annotate all runs with every model in vlm.yml (4-model comparison):
+    # Full 5-model batch on all 981 runs:
     python src/compare_vlm.py --limit 0 --output-root D:/Temp/yogamann-output
 
-    # Annotate specific runs with one model:
-    python src/compare_vlm.py --run-ids 981 980 --models qwen2_5_vl_7b
+    # Subset of models, force re-annotate:
+    python src/compare_vlm.py --models qwen2_5_vl_7b --limit 50 --force
 
-    # Force re-annotate even pairs already in DB:
-    python src/compare_vlm.py --limit 50 --models qwen2_5_vl_7b --force
+    # Quieter (errors + summary only):
+    python src/compare_vlm.py --limit 0 -q
 
-    # Larger micro-batch for memory headroom check:
-    python src/compare_vlm.py --limit 200 --batch-size 50
+    # More verbose (full tracebacks on errors):
+    python src/compare_vlm.py --limit 0 -v
 """
 from __future__ import annotations
 
 import argparse
 import time
 import traceback
+from datetime import datetime
 from pathlib import Path
 
 import torch
@@ -40,7 +49,6 @@ from vlm_inference import annotate, evict_model, VLMSchemaError
 
 def _fetch_run_candidates(conn, run_ids: list[int] | None, limit: int) -> list:
     """Return the candidate run set the user is filtering to.
-
     Per-model resumability filtering happens inside the model phase.
     """
     if run_ids:
@@ -59,43 +67,83 @@ def _fetch_run_candidates(conn, run_ids: list[int] | None, limit: int) -> list:
     return conn.execute(q).fetchall()
 
 
+def _historical_avg_latency(conn, model_id: str) -> tuple[float, int]:
+    """Mean latency_s for this model from prior annotations.
+    Returns (avg_seconds, sample_count). avg=0 if no samples yet."""
+    row = conn.execute(
+        "SELECT AVG(latency_s), COUNT(*) FROM vlm_annotations WHERE model_id = ?",
+        (model_id,),
+    ).fetchone()
+    return (row[0] or 0.0, row[1] or 0)
+
+
+def _fmt_eta(seconds: float) -> str:
+    """Compact ETA — auto-choose seconds/minutes/hours."""
+    if seconds < 60:
+        return f"{seconds:.0f}s"
+    if seconds < 3600:
+        return f"{seconds / 60:.1f}min"
+    return f"{seconds / 3600:.1f}h"
+
+
+def _ts() -> str:
+    """Brief HH:MM:SS timestamp for log lines."""
+    return datetime.now().strftime("%H:%M:%S")
+
+
 def _run_model_phase(
     conn,
     model_key: str,
     candidates: list,
     batch_size: int,
     force: bool,
+    verbose: bool,
+    quiet: bool,
 ) -> dict:
     """Annotate every candidate run with one model, in micro-batches.
-
     Returns {'ok': N, 'error': M, 'skipped': K, 'elapsed_s': T}.
     """
     if force:
         todo = candidates
         skipped = 0
     else:
-        unanalyzed_ids = {
-            r["id"] for r in get_unanalyzed_runs(conn, model_key)
-        }
+        unanalyzed_ids = {r["id"] for r in get_unanalyzed_runs(conn, model_key)}
         todo = [r for r in candidates if r["id"] in unanalyzed_ids]
         skipped = len(candidates) - len(todo)
 
-    print(
-        f"\n=== {model_key} ===\n"
-        f"  candidates : {len(candidates)}\n"
-        f"  already done: {skipped}\n"
-        f"  to process : {len(todo)}\n"
-        f"  micro-batch: {batch_size}"
-    )
+    hist_avg, n_samples = _historical_avg_latency(conn, model_key)
+    phase_eta = hist_avg * len(todo) if hist_avg else 0.0
+
+    if not quiet:
+        print(f"\n=== {model_key} === [{_ts()}]")
+        print(f"  candidates  : {len(candidates)}")
+        print(f"  already done: {skipped}")
+        print(f"  to process  : {len(todo)}")
+        print(f"  micro-batch : {batch_size}")
+        if hist_avg:
+            print(
+                f"  est. phase  : {_fmt_eta(phase_eta)}  "
+                f"(avg {hist_avg:.1f}s/img from {n_samples} prior samples)"
+            )
+        else:
+            print(f"  est. phase  : unknown (no prior samples for this model)")
 
     stats = {"ok": 0, "error": 0, "skipped": skipped, "elapsed_s": 0.0}
     if not todo:
-        print(f"  [{model_key}] nothing to do.")
+        if not quiet:
+            print(f"  [{model_key}] nothing to do.")
         return stats
 
-    t_start = time.perf_counter()
+    if not quiet:
+        print(f"  loading {model_key}... (first call includes ~15-25s model load)")
+
+    t_phase_start = time.perf_counter()
+    load_plus_first = 0.0
+    first_img = True
+
     for batch_idx, batch in enumerate(chunked(todo, batch_size), start=1):
         for run in batch:
+            t_inf = time.perf_counter()
             try:
                 result = annotate(
                     Path(run["source_path"]),
@@ -113,25 +161,71 @@ def _run_model_phase(
                     latency_s=result["latency_s"],
                 )
                 stats["ok"] += 1
-            except (FileNotFoundError, VLMSchemaError) as exc:
-                print(f"  [skip] run {run['id']} {model_key}: {exc}")
-                stats["error"] += 1
-            except Exception as exc:
-                print(f"  [error] run {run['id']} {model_key}: {exc}")
-                traceback.print_exc()
-                stats["error"] += 1
+                elapsed_inf = time.perf_counter() - t_inf
 
-        # End of micro-batch — release transient memory + log progress
+                if first_img:
+                    load_plus_first = elapsed_inf
+                    first_img = False
+
+                if not quiet:
+                    done = stats["ok"] + stats["error"]
+                    phase_elapsed = time.perf_counter() - t_phase_start
+                    if done > 1:
+                        steady_avg = (phase_elapsed - load_plus_first) / (done - 1)
+                    else:
+                        steady_avg = elapsed_inf
+                    eta_remaining = steady_avg * (len(todo) - done)
+                    rating = (result.get("rating") or "?")[:10]
+                    marker = "L+1   " if done == 1 else f"avg={steady_avg:4.1f}s"
+                    print(
+                        f"  [{_ts()}] {model_key:<14} "
+                        f"{done:>4}/{len(todo):<4} "
+                        f"run={run['id']:<5} "
+                        f"{elapsed_inf:5.1f}s "
+                        f"rating={rating:<10} "
+                        f"{marker} "
+                        f"ETA={_fmt_eta(eta_remaining)}"
+                    )
+            except (FileNotFoundError, VLMSchemaError) as exc:
+                stats["error"] += 1
+                print(f"  [{_ts()}] {model_key:<14} [SKIP] run={run['id']}: {exc}")
+            except Exception as exc:
+                stats["error"] += 1
+                print(
+                    f"  [{_ts()}] {model_key:<14} [ERROR] run={run['id']}: "
+                    f"{type(exc).__name__}: {exc}"
+                )
+                if verbose:
+                    traceback.print_exc()
+
         if torch.cuda.is_available():
             torch.cuda.empty_cache()
-        done = stats["ok"] + stats["error"]
+        if not quiet:
+            done = stats["ok"] + stats["error"]
+            print(
+                f"  -- {model_key} batch {batch_idx} done: "
+                f"{stats['ok']} ok / {stats['error']} err / "
+                f"{len(todo) - done} remain --"
+            )
+
+    stats["elapsed_s"] = time.perf_counter() - t_phase_start
+    if not quiet:
+        n_inf = stats["ok"] + stats["error"]
+        if n_inf > 1:
+            steady = (stats["elapsed_s"] - load_plus_first) / (n_inf - 1)
+        else:
+            steady = stats["elapsed_s"]
+        delta_str = ""
+        if hist_avg:
+            delta_pct = (steady - hist_avg) / hist_avg * 100
+            delta_str = f" ({delta_pct:+.0f}% vs prior {hist_avg:.1f}s)"
         print(
-            f"  [{model_key}] batch {batch_idx}: "
+            f"  [{_ts()}] {model_key} PHASE DONE: "
             f"{stats['ok']} ok, {stats['error']} err, "
-            f"{len(todo) - done} remain"
+            f"{_fmt_eta(stats['elapsed_s'])} total, "
+            f"steady-state {steady:.1f}s/img{delta_str}"
         )
 
-    stats["elapsed_s"] = time.perf_counter() - t_start
     return stats
 
 
@@ -149,6 +243,11 @@ def main() -> None:
                         help="Re-annotate even if (run_id, model_id) already in DB")
     parser.add_argument("--batch-size", type=int, default=25,
                         help="Images per micro-batch (default 25)")
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument("-v", "--verbose", action="store_true",
+                       help="More detail (full tracebacks on errors)")
+    group.add_argument("-q", "--quiet", action="store_true",
+                       help="Only errors and final summary")
     args = parser.parse_args()
 
     db_path = Path(args.output_root) / "yogamann.db"
@@ -165,20 +264,43 @@ def main() -> None:
         print("No candidate runs found.")
         return
 
-    print(f"Models in run: {model_keys}")
-    print(f"Candidate runs: {len(candidates)}")
-    print(f"DB:             {db_path}")
+    # Top-level batch ETA — sum of per-model phase predictions.
+    batch_eta_sec = 0.0
+    for mk in model_keys:
+        hist_avg, _ = _historical_avg_latency(conn, mk)
+        if hist_avg:
+            unanalyzed = {r["id"] for r in get_unanalyzed_runs(conn, mk)}
+            n_todo = (
+                len(candidates) if args.force
+                else sum(1 for c in candidates if c["id"] in unanalyzed)
+            )
+            batch_eta_sec += hist_avg * n_todo
+
+    print(f"[{_ts()}] Batch orchestrator starting")
+    print(f"Models in run  : {model_keys}")
+    print(f"Candidate runs : {len(candidates)}")
+    print(f"DB             : {db_path}")
+    print(f"Force re-ann.  : {args.force}")
+    print(f"Verbosity      : {'quiet' if args.quiet else 'verbose' if args.verbose else 'normal'}")
+    if batch_eta_sec:
+        print(f"Total batch ETA: {_fmt_eta(batch_eta_sec)} (based on historical averages)")
+    else:
+        print(f"Total batch ETA: unknown (no historical samples)")
 
     summary: dict[str, dict] = {}
+    t_total_start = time.perf_counter()
     for model_key in model_keys:
         try:
             summary[model_key] = _run_model_phase(
-                conn, model_key, candidates, args.batch_size, args.force
+                conn, model_key, candidates, args.batch_size,
+                args.force, args.verbose, args.quiet,
             )
         finally:
             evict_model(model_key)
 
-    print("\n" + format_summary(summary))
+    total_elapsed = time.perf_counter() - t_total_start
+    print(f"\n[{_ts()}] BATCH COMPLETE in {_fmt_eta(total_elapsed)}")
+    print(format_summary(summary))
 
 
 if __name__ == "__main__":
