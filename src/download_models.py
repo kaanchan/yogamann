@@ -7,8 +7,6 @@ Usage:
 import argparse
 import os
 
-os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
-
 from huggingface_hub import snapshot_download
 
 # (model_id, allow_patterns, ignore_patterns, reason)
@@ -88,6 +86,8 @@ def _download(models: list, token: str | None, cache_dir: str) -> None:
 
 
 if __name__ == "__main__":
+    os.environ["HF_HUB_ENABLE_HF_TRANSFER"] = "1"
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--vlm-only", action="store_true", help="Download VLM models only")
     args = parser.parse_args()

@@ -71,21 +71,21 @@ switch ($Target) {
             & $Python src/download_models.py
         }
     }
-        "vlm-download" {
-            if (-not $env:HF_TOKEN) {
-                Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slower (unauthenticated)." -ForegroundColor Yellow
-                Write-Host "       Get a free read token at https://huggingface.co/settings/tokens" -ForegroundColor Yellow
-            }
-            Invoke-Step "Download VLM models (hf_transfer)" {
-                & $Python src/download_models.py --vlm-only
-            }
+    "vlm-download" {
+        if (-not $env:HF_TOKEN) {
+            Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slower (unauthenticated)." -ForegroundColor Yellow
+            Write-Host "       Get a free read token at https://huggingface.co/settings/tokens" -ForegroundColor Yellow
         }
-        "analyze" {
-            $env:HF_HUB_OFFLINE = "1"
-            Invoke-Step "Annotate pending runs with active VLM model" {
-                & $Python src/analyze.py --once --output-root $OutputRoot
-            }
+        Invoke-Step "Download VLM models (hf_transfer)" {
+            & $Python src/download_models.py --vlm-only
         }
+    }
+    "analyze" {
+        $env:HF_HUB_OFFLINE = "1"
+        Invoke-Step "Annotate pending runs with active VLM model" {
+            & $Python src/analyze.py --once --output-root $OutputRoot
+        }
+    }
     default {
         Write-Host "Usage: .\make.ps1 [-Target <target>] [-LogLevel <level>]" -ForegroundColor Yellow
         Write-Host ""
