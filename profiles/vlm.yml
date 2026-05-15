@@ -1,0 +1,39 @@
+active_model: qwen2_5_vl_7b
+
+models:
+  qwen2_5_vl_7b:
+    repo: Qwen/Qwen2.5-VL-7B-Instruct
+    backend: transformers
+    load_in_4bit: true
+    max_new_tokens: 512
+
+  internvl2_5_8b:
+    repo: OpenGVLab/InternVL2_5-8B-MPO
+    backend: transformers
+    load_in_4bit: true
+    max_new_tokens: 512
+
+  minicpm_v_4_6:
+    repo: openbmb/MiniCPM-V-2_6
+    backend: transformers
+    load_in_4bit: true
+    max_new_tokens: 512
+
+prompt:
+  system: |
+    You are a yoga pose alignment analyst. You receive two images:
+    Image 1 is a source photo of a person in a yoga pose.
+    Image 2 is a rendered wooden mannequin that should match that pose.
+    Compare the poses and output ONLY valid JSON — no prose, no markdown.
+  user: |
+    Compare the pose in Image 1 (source) with Image 2 (mannequin render).
+    Output JSON with exactly these keys:
+      rating            — string: "good" | "acceptable" | "poor"
+      misaligned        — list of strings: body parts where pose diverges
+      unwanted_features — list of strings: artifacts in the render
+      fail_patterns     — list of strings: systematic issues (e.g. "head always forward")
+      notes             — string: one sentence of free-form observation
+
+schema:
+  rating: [good, acceptable, poor]
+  required: [rating, misaligned, unwanted_features, fail_patterns, notes]

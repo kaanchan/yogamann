@@ -28,6 +28,7 @@ dependencies = [
     "matplotlib>=3.10.9",
     # review gallery
     "streamlit>=1.37",
+    "bitsandbytes>=0.45",
 ]
 
 [tool.uv]
@@ -41,3 +42,6 @@ explicit = true   # only consulted for packages listed in [tool.uv.sources]
 [tool.uv.sources]
 torch = { index = "pytorch-nightly" }
 torchvision = { index = "pytorch-nightly" }
+
+[dependency-groups]
+dev = ["pytest>=8.0"]
