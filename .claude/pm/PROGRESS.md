@@ -1,5 +1,40 @@
 # PROGRESS
 
+## 2026-05-15 — Session close: v4 branch merged, batched-inference branch created
+
+### Accomplished
+- **8x Qwen inference speedup**: root cause was `max_pixels` kwarg silently ignored by
+  transformers 4.49 Qwen2VLProcessor. Fix: set `processor.image_processor.max_pixels`
+  attribute directly. 60s/image → 7.5s/image steady state (seq_len 2200→1118 tokens).
+- **Round-robin orchestration** with lag-first sort and time-budget rotation
+  (`--time-budget 300s` default, fallback `--slice-pct 10%`). CLI: `--strategy`,
+  `--time-budget`, `--slice-pct`, `--slice`. Old model-major preserved via `--strategy model-major`.
+- **Granular logging**: pre-inference "→ inferring ..." print + `flush=True` eliminates
+  silent-hang appearance during 60s inference gaps.
+- **GPU safety layer**: `batch_lock.py` (lock file, PID-based stale detection),
+  `gpu_monitor.py` (nvidia-smi polling, thermal cooldown), `win_job.py`
+  (Windows Job Object KILL_ON_JOB_CLOSE auto-kills orphaned subprocesses).
+- **VLM Compare gallery tab**: side-by-side model vs human ratings, misaligned +
+  artifacts display, render thumbnail alongside source, sqlite3.Row→dict fix,
+  lock guard on Generate buttons, blocked-by-lock banner, beforeunload JS.
+- **db.py**: pivot query now includes `{model}_misaligned` + `{model}_unwanted`.
+- **VLM prompt rewrite**: explicit "Do NOT evaluate naturalness/relaxation/quality"
+  constraints; focus narrowed to joint angles/limb positions/weight distribution.
+- **Issue #34 research**: SYNTHESIS.md consolidated from ChatGPT + Gemini deep-research.
+  Key: pynvml > nvidia-smi subprocess; nvitop for throttle bitmasks; PM2 for crash recovery.
+- **Merged** `feature/v4-downgrade-testing` → `main`, pushed to GitHub.
+- **Created** `feature/batched-inference` branch off main.
+
+### Issues opened/closed
+- #34 research complete (SYNTHESIS.md written); issue remains open for implementation
+- #32 remains open (full 5-model annotation run still in progress)
+
+### Known limitations still open
+- Qwen first 84 annotations used old prompt (naturalness bias) — needs --force re-run
+- MiniCPM-V outputs numeric ratings ("3") not schema values — needs normalisation
+- `[qwen _infer] seq_len=NNN` diagnostic print still in vlm_inference.py — remove post-validation
+- pynvml not yet adopted (gpu_monitor.py still uses nvidia-smi subprocess)
+
 ## 2026-05-15 (very late eve) — MiniCPM-o-2.6 resolved; 5/5 VLMs working (#32)
 
 - Diagnosed: native Qwen2 `_init_weights` (in `transformers.models.qwen2.modeling_qwen2:382`) calls `.normal_()` on bnb-quantized uint8 weights when MiniCPM-o's omni stack triggers post-load weight init. PyTorch has no `normal_kernel` for Byte dtype → crash.
