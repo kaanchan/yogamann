@@ -20,6 +20,7 @@ from PIL import Image, ImageOps
 
 # ── Constants ─────────────────────────────────────────────────────────────────
 _MODEL_CACHE: dict[str, tuple] = {}
+_TOKENIZER_CACHE: dict[str, object] = {}
 
 REQUIRED_KEYS = ["rating", "misaligned", "unwanted_features", "fail_patterns", "notes"]
 
@@ -55,7 +56,9 @@ def _load_model(model_key: str, config: dict) -> tuple:
     repo = config["repo"]
     load_in_4bit = config.get("load_in_4bit", False)
 
-    from transformers import AutoProcessor, AutoModel, BitsAndBytesConfig
+    from transformers import (
+        AutoProcessor, AutoModel, AutoModelForCausalLM, BitsAndBytesConfig,
+    )
     try:
         from transformers import AutoModelForImageTextToText as _AutoVLM
     except ImportError:
@@ -71,7 +74,17 @@ def _load_model(model_key: str, config: dict) -> tuple:
     try:
         model = _AutoVLM.from_pretrained(repo, **kwargs)
     except ValueError:
-        model = AutoModel.from_pretrained(repo, **kwargs)
+        try:
+            model = AutoModelForCausalLM.from_pretrained(repo, **kwargs)
+        except ValueError:
+            model = AutoModel.from_pretrained(repo, **kwargs)
+    # Custom-code VLMs (InternVL, MiniCPM-V/o, Molmo) don't expose a unified
+    # processor with apply_chat_template — they're invoked via their own
+    # model.chat(...) methods using a tokenizer directly. Skip AutoProcessor
+    # entirely for those styles; _infer_<style> loads what it needs.
+    if config.get("inference_style"):
+        _MODEL_CACHE[model_key] = (model, None)
+        return model, None
     proc_kwargs = {"trust_remote_code": True}
     if "local_files_only" in kwargs:
         proc_kwargs["local_files_only"] = kwargs["local_files_only"]
@@ -80,6 +93,21 @@ def _load_model(model_key: str, config: dict) -> tuple:
     processor = AutoProcessor.from_pretrained(repo, **proc_kwargs)
     _MODEL_CACHE[model_key] = (model, processor)
     return model, processor
+
+
+def _get_tokenizer(repo: str, revision: str | None = None, offline: bool = False) -> object:
+    cache_key = f"{repo}@{revision or 'main'}"
+    if cache_key in _TOKENIZER_CACHE:
+        return _TOKENIZER_CACHE[cache_key]
+    from transformers import AutoTokenizer
+    tok_kwargs = {"trust_remote_code": True, "use_fast": False}
+    if offline:
+        tok_kwargs["local_files_only"] = True
+    if revision:
+        tok_kwargs["revision"] = revision
+    tok = AutoTokenizer.from_pretrained(repo, **tok_kwargs)
+    _TOKENIZER_CACHE[cache_key] = tok
+    return tok
 
 
 # ── Prompt ───────────────────────────────────────────────────────────────────
@@ -108,7 +136,99 @@ def _resize_for_vlm(img: Image.Image, max_side: int = 1024) -> Image.Image:
     return img.resize((new_w, new_h), Image.LANCZOS)
 
 
-# ── Inference ─────────────────────────────────────────────────────────────────
+# ── InternVL-style inference (custom model.chat API) ─────────────────────────
+def _internvl_preprocess(img: Image.Image, input_size: int = 448):
+    """InternVL preprocessing: resize to square + ImageNet normalize -> fp32 CPU tensor.
+    Caller casts to model.dtype before moving to GPU (bnb 4-bit residual modules
+    are fp16 by default, so a static dtype here would mismatch the vision tower)."""
+    import numpy as np
+    import torch
+    img = img.convert("RGB").resize((input_size, input_size), Image.BICUBIC)
+    arr = np.asarray(img, dtype=np.float32) / 255.0
+    arr = arr.transpose(2, 0, 1)
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32).reshape(3, 1, 1)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32).reshape(3, 1, 1)
+    arr = (arr - mean) / std
+    return torch.from_numpy(arr)
+
+
+def _patch_internvl_generation_mixin(model) -> None:
+    """transformers >=4.50 stopped auto-inheriting GenerationMixin in PreTrainedModel.
+    InternVL's hosted InternLM2ForCausalLM was authored against pre-v4.50 and assumes
+    .generate() exists AND that GenerationMixin.__init__ initialized .generation_config.
+    Inject GenerationMixin into the class bases at runtime (once) so .chat() works,
+    and seed a default generation_config since the missed __init__ left it None."""
+    from transformers import GenerationMixin, GenerationConfig
+    cls = type(model.language_model)
+    if GenerationMixin not in cls.__mro__:
+        cls.__bases__ = cls.__bases__ + (GenerationMixin,)
+    if getattr(model.language_model, "generation_config", None) is None:
+        model.language_model.generation_config = GenerationConfig.from_model_config(
+            model.language_model.config
+        )
+
+
+def _infer_internvl(model, repo: str, messages: list, images: list, config: dict) -> str:
+    """InternVL uses model.chat(tokenizer, pixel_values, question, ...) — not generate()."""
+    import torch
+    _patch_internvl_generation_mixin(model)
+    offline = os.environ.get("HF_HUB_OFFLINE") == "1"
+    tokenizer = _get_tokenizer(repo, revision=config.get("revision"), offline=offline)
+    max_new_tokens = config.get("max_new_tokens", 512)
+    input_size = config.get("internvl_input_size", 448)
+
+    model_dtype = next(model.parameters()).dtype
+    pixel_values_list = [
+        _internvl_preprocess(img, input_size).unsqueeze(0).to(model_dtype).cuda()
+        for img in images
+    ]
+    pixel_values = torch.cat(pixel_values_list, dim=0)
+    num_patches_list = [1] * len(images)
+
+    user_msg = messages[-1]
+    user_text = next(c["text"] for c in user_msg["content"] if c["type"] == "text")
+    question = (
+        "\n".join(f"Image-{i+1}: <image>" for i in range(len(images)))
+        + "\n" + user_text
+    )
+
+    generation_config = dict(max_new_tokens=max_new_tokens, do_sample=False)
+    return model.chat(
+        tokenizer, pixel_values, question, generation_config,
+        num_patches_list=num_patches_list, history=None, return_history=False,
+    )
+
+
+# ── Molmo-style inference (processor.process + model.generate_from_batch) ────
+def _infer_molmo(model, repo: str, messages: list, images: list, config: dict) -> str:
+    """Molmo uses processor.process(images=, text=) + model.generate_from_batch().
+    The processor returns a single batch dict; no chat template, plain text prompt."""
+    import torch
+    from transformers import AutoProcessor, GenerationConfig
+    offline = os.environ.get("HF_HUB_OFFLINE") == "1"
+    proc_kwargs = {"trust_remote_code": True}
+    if offline:
+        proc_kwargs["local_files_only"] = True
+    revision = config.get("revision")
+    if revision:
+        proc_kwargs["revision"] = revision
+    processor = AutoProcessor.from_pretrained(repo, **proc_kwargs)
+    max_new_tokens = config.get("max_new_tokens", 512)
+    max_image_side = config.get("max_image_side", 1024)
+    images = [_resize_for_vlm(img, max_image_side) for img in images]
+
+    user_msg = messages[-1]
+    user_text = next(c["text"] for c in user_msg["content"] if c["type"] == "text")
+
+    inputs = processor.process(images=images, text=user_text)
+    inputs = {k: v.to(model.device).unsqueeze(0) for k, v in inputs.items()}
+    gen_cfg = GenerationConfig(max_new_tokens=max_new_tokens, stop_strings="<|endoftext|>")
+    output = model.generate_from_batch(inputs, gen_cfg, tokenizer=processor.tokenizer)
+    new_tokens = output[0, inputs["input_ids"].size(1):]
+    return processor.tokenizer.decode(new_tokens, skip_special_tokens=True)
+
+
+# ── Inference (Qwen-style — processor.apply_chat_template + model.generate) ──
 def _infer(model, processor, messages: list, images: list, config: dict) -> str:
     max_new_tokens = config.get("max_new_tokens", 512)
     max_image_side = config.get("max_image_side", 1024)
@@ -175,8 +295,16 @@ def annotate(
 
     messages = _build_messages(config["prompt"], backend)
 
+    style = config.get("inference_style", "qwen_style")
+    if style == "internvl":
+        infer_fn = lambda msgs: _infer_internvl(model, config["repo"], msgs, images, config)
+    elif style == "molmo":
+        infer_fn = lambda msgs: _infer_molmo(model, config["repo"], msgs, images, config)
+    else:
+        infer_fn = lambda msgs: _infer(model, processor, msgs, images, config)
+
     t0 = time.perf_counter()
-    raw = _infer(model, processor, messages, images, config)
+    raw = infer_fn(messages)
 
     try:
         data = _parse_output(raw)
@@ -185,7 +313,7 @@ def annotate(
             {"role": "assistant", "content": raw},
             {"role": "user", "content": _RETRY_PROMPT},
         ]
-        raw = _infer(model, processor, retry_messages, images, config)
+        raw = infer_fn(retry_messages)
         data = _parse_output(raw)
 
     _validate(data)
