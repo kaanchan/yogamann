@@ -6,24 +6,28 @@ models:
     backend: transformers
     load_in_4bit: true
     max_new_tokens: 512
+    # revision: <commit-hash>  # pin to a specific HF commit for reproducibility
 
   internvl2_5_8b:
     repo: OpenGVLab/InternVL2_5-8B-MPO
     backend: transformers
     load_in_4bit: true
     max_new_tokens: 512
+    # revision: <commit-hash>
 
   minicpm_o_2_6:
     repo: openbmb/MiniCPM-o-2_6
     backend: transformers
     load_in_4bit: true
     max_new_tokens: 512
+    # revision: <commit-hash>
 
   molmo_7b_d:
     repo: allenai/Molmo-7B-D-0924
     backend: transformers
     load_in_4bit: true
     max_new_tokens: 512
+    # revision: <commit-hash>
 
 prompt:
   system: |

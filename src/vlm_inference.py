@@ -10,6 +10,7 @@ Returns:
 from __future__ import annotations
 
 import json
+import os
 import re
 import time
 from pathlib import Path
@@ -62,11 +63,21 @@ def _load_model(model_key: str, config: dict) -> tuple:
 
     bnb = BitsAndBytesConfig(load_in_4bit=True) if load_in_4bit else None
     kwargs = dict(quantization_config=bnb, device_map="auto", trust_remote_code=True)
+    if os.environ.get("HF_HUB_OFFLINE") == "1":
+        kwargs["local_files_only"] = True
+    revision = config.get("revision")
+    if revision:
+        kwargs["revision"] = revision
     try:
         model = _AutoVLM.from_pretrained(repo, **kwargs)
     except ValueError:
         model = AutoModel.from_pretrained(repo, **kwargs)
-    processor = AutoProcessor.from_pretrained(repo, trust_remote_code=True)
+    proc_kwargs = {"trust_remote_code": True}
+    if "local_files_only" in kwargs:
+        proc_kwargs["local_files_only"] = kwargs["local_files_only"]
+    if revision:
+        proc_kwargs["revision"] = revision
+    processor = AutoProcessor.from_pretrained(repo, **proc_kwargs)
     _MODEL_CACHE[model_key] = (model, processor)
     return model, processor
 
