@@ -1,5 +1,17 @@
 # PROGRESS
 
+## 2026-05-15 (eve) — transformers v5 breakage + per-model dispatcher investigation (#32), feature/v4-downgrade-testing
+
+- Diagnosed: `(yogamann)` venv had `transformers==5.8.0` (unpinned install). v5 silently broke 3 of 4 VLMs via `trust_remote_code` rot.
+- Issues opened: #32 (transformers version pinning), #33 (pose pipeline evaluation alternatives).
+- Research folders created with deep-research prompts + agent-written deliverables: `docs/research/issue-32-transformers-version-pinning/`, `docs/research/issue-33-pose-pipeline-evaluation/`. User dropped their independent deep-research results into both folders during this session.
+- Branched `feature/v4-downgrade-testing` from `feature/vlm-analysis@440b99c`. Downgraded transformers 5.8.0 → 4.57.6 in venv. Qwen2.5-VL confirmed working on v4 (no regression).
+- Implemented per-model inference dispatcher in `src/vlm_inference.py`: `_load_model` skips processor when `inference_style` set, `annotate()` dispatches via lambda. New helpers: `_get_tokenizer`, `_internvl_preprocess`, `_infer_internvl`, `_infer_molmo`, `_patch_internvl_generation_mixin`. Added `AutoModelForCausalLM` to model-load fallback chain.
+- Findings (documented in ADR-002 at `docs/architecture-decisions.md`): the dispatcher pattern works architecturally, but each `trust_remote_code` model has *independent* rot beyond just transformers version — InternVL needs 4+ cascading v4.50+ patches (GenerationMixin, generation_config, DynamicCache), Molmo's hosted preprocessing file has unconditional `import tensorflow` that HF's import-check can't deduce is dead code. Dispatchers retained as learning artifacts + reference implementations.
+- Architecture lessons doc created: `docs/architecture-decisions.md` ADR-001 (pin ML libs like prod DB drivers) + ADR-002 (per-model dispatcher pattern + trust_remote_code multi-axis rot). Both drafted by parallel background agents while main session worked on the dispatcher implementation.
+- Side-quest dependencies installed during the v5 chase (still in venv on this branch): `soundfile`, `torchaudio` (cu130 nightly matched), `librosa` + transitive (numba/llvmlite/sklearn), `sentencepiece`. Carried over to v4 venv state.
+- Commit: 4d5d4cc (1926 insertions, 13 files). Pushed to origin. PR not yet opened — branch is exploratory; merge decision pending #32 deep-research review.
+
 ## 2026-05-15 — VLM Pose Analysis implementation (#29), feature/vlm-analysis
 
 - Implemented all 7 tasks via Subagent-Driven Development skill
