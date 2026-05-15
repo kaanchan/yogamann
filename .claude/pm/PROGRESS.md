@@ -1,5 +1,14 @@
 # PROGRESS
 
+## 2026-05-15 (very late eve) — MiniCPM-o-2.6 resolved; 5/5 VLMs working (#32)
+
+- Diagnosed: native Qwen2 `_init_weights` (in `transformers.models.qwen2.modeling_qwen2:382`) calls `.normal_()` on bnb-quantized uint8 weights when MiniCPM-o's omni stack triggers post-load weight init. PyTorch has no `normal_kernel` for Byte dtype → crash.
+- Fix: `_patch_qwen2_init_weights_for_bnb()` in `src/vlm_inference.py` — wraps `Qwen2PreTrainedModel._init_weights` with an early-return for uint8 weights. Applied at module load (one-time, idempotent via `_bnb_safe` sentinel). Benign for the other Qwen2-based models (Qwen2.5-VL, MiniCPM-V-2.6) since they don't trigger this init path on quantized weights — verified by regression: Qwen2.5-VL post-patch still produces `rating="good"` in 27.2s, identical to pre-patch behavior.
+- MiniCPM-o-2.6 re-enabled in `profiles/vlm.yml` with `inference_style: minicpm_v` (sibling models share the `model.chat(image=None, msgs=[...], tokenizer=)` API).
+- Empirical validation through orchestrator: 1 ok / 0 err / 29.9s on run 981. Output: `rating="good"`, `misaligned=["torso"]`, 10.3s pure-inference latency. Load: 19.5s, 6.25 GB VRAM.
+- ADR-003 updated to reflect resolution. PENDING-TASK.md cleared.
+- All 5 VLMs in our comparison suite now operational on transformers==4.49.0.
+
 ## 2026-05-15 (late eve) — VLM batch orchestration refactor (#32)
 
 - Inverted `compare_vlm.py` loop from image-major to model-major. Each model phase: load → annotate K-image micro-batches → evict. Total cold-load cost is now N_models, not N_models × N_images.

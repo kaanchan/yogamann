@@ -17,16 +17,17 @@ models:
     # revision: <commit-hash>
 
   # MiniCPM-o-2.6 is the omni-modal sibling of MiniCPM-V-2.6 (adds audio + TTS).
-  # BLOCKED on transformers 4.49.0: bnb 4-bit quantization on its Qwen2 audio-
-  # language backbone triggers NotImplementedError: normal_kernel_cpu for 'Byte'
-  # during _init_weights (Qwen2 native init calling .normal_() on uint8 weights).
-  # See docs/architecture-decisions.md ADR-002. Use minicpm_v_2_6 (vision-only) instead.
-  # minicpm_o_2_6:
-  #   repo: openbmb/MiniCPM-o-2_6
-  #   backend: transformers
-  #   inference_style: minicpm_v
-  #   load_in_4bit: true
-  #   max_new_tokens: 512
+  # Previously blocked on transformers 4.49.0: bnb 4-bit + native Qwen2 _init_weights
+  # crashed with NotImplementedError on uint8 tensors. Now unblocked via the
+  # _patch_qwen2_init_weights_for_bnb() patch in src/vlm_inference.py — applied at
+  # module load, no-op for already-working Qwen2 models. See ADR-003 for the full
+  # diagnosis + resolution.
+  minicpm_o_2_6:
+    repo: openbmb/MiniCPM-o-2_6
+    backend: transformers
+    inference_style: minicpm_v   # sibling of MiniCPM-V; same model.chat(image=None, msgs=[...], tokenizer=) API
+    load_in_4bit: true
+    max_new_tokens: 512
 
   minicpm_v_2_6:
     repo: openbmb/MiniCPM-V-2_6

@@ -113,7 +113,7 @@ singleton, hence the `==` rather than `>=4.49,<4.50`.
 | InternVL2.5-8B-MPO     | working | bnb 4-bit works; rating="poor" |
 | Molmo-7B-D-0924        | working | needed fp16 dtype cast in `_infer_molmo`; rating="acceptable" |
 | MiniCPM-V-2.6          | working | needed numpy-array normalize() monkeypatch; rating parsed |
-| MiniCPM-o-2.6          | **blocked** | bnb 4-bit + Qwen2 audio backbone init clash |
+| MiniCPM-o-2.6          | **working** (resolved 2026-05-15 late-eve) | needed `_patch_qwen2_init_weights_for_bnb`; rating="good", `misaligned=["torso"]`, 10.3s inference, 6.25 GB VRAM |
 
 **Why earlier candidate pins failed:**
 
@@ -144,28 +144,52 @@ the last pre-refactor release sidesteps them in one move.
    passes `content=<string>` rather than `content=[{"type": "text", ...}]`.
    The original extraction crashed. Made all dispatchers robust to both shapes.
 
-**MiniCPM-o-2.6 — the one that refuses to play:**
+**MiniCPM-o-2.6 — the one that refused to play, now resolved:**
 
 MiniCPM-o uses a Qwen2 audio-language module as part of its omni-modal stack.
 When loading with `BitsAndBytesConfig(load_in_4bit=True)`, the Qwen2 backbone's
 native `_init_weights` (in `transformers.models.qwen2.modeling_qwen2`) calls
 `.normal_(mean=0, std=...)` on already-bnb-quantized weights, which are
 uint8/Byte tensors. PyTorch's `normal_kernel_cpu` is not implemented for Byte
-dtype. This is a bnb × native-Qwen2 interaction inside a custom-code wrapper —
-none of the monkeypatches that fixed InternVL/Molmo/MiniCPM-V are in the right
-place to fix this. Possible paths:
-- (a) ~~Disable bnb 4-bit and load in bf16~~ — **not viable on this hardware.**
-  An 8B model in bf16 needs ~16 GB just for weights, leaving zero room for
-  KV cache on the 15.92 GB RTX 5080 Laptop. Reserved for a future workstation
-  upgrade or running MiniCPM-o on CPU (very slow but possible).
-- (b) Find an even older transformers pin where this init path is different
-- (c) Vendor-fork MiniCPM-o's modeling file to suppress weight init for
-  already-quantized modules
-- (d) Use the vision-only sibling MiniCPM-V-2.6 (we are; it works)
+dtype.
 
-Park MiniCPM-o-2.6 in `profiles/vlm.yml` (commented out, points here for
-context). Reassess only if the user has a specific reason to need its omni
-capabilities — for pose-grading-on-images, MiniCPM-V is the right pick anyway.
+**Resolution (2026-05-15 late-eve):** Added `_patch_qwen2_init_weights_for_bnb()`
+in `src/vlm_inference.py` — applied at module import. The patch wraps
+`Qwen2PreTrainedModel._init_weights` with an early-return for uint8 weights:
+
+```python
+def _safe_init_weights(self, module):
+    if hasattr(module, "weight") and module.weight is not None:
+        if module.weight.dtype == torch.uint8:
+            return  # already bnb-quantized; skip random re-init
+    return _orig(self, module)
+```
+
+This is benign for the other Qwen2-based models in our suite — Qwen2.5-VL
+and MiniCPM-V-2.6 don't trigger `_init_weights` on quantized weights in
+their load path, so the patch is a no-op for them. Verified empirically:
+Qwen2.5-VL regression after the patch lands still produces `rating="good"`
+in 27.2s, identical to pre-patch behavior.
+
+MiniCPM-o now loads in 19.5s at 6.25 GB VRAM with bnb 4-bit. Single-image
+inference completes in 10.3s and emits valid JSON (`rating="good"`,
+`misaligned=["torso"]`). Re-enabled in `profiles/vlm.yml` with
+`inference_style: minicpm_v` since its `model.chat(image=None, msgs=[...],
+tokenizer=)` API is identical to MiniCPM-V-2.6's.
+
+The "Some weights were not initialized: tts.head_code.*" warnings during
+load are harmless for vision use — those are TTS-specific parameters
+we don't exercise.
+
+**Alternative paths considered (now historical):**
+- ~~(a) Disable bnb 4-bit and load in bf16~~ — not viable: 8B bf16 = ~16 GB,
+  no KV cache room on 15.92 GB GPU.
+- ~~(b) Find an even older transformers pin~~ — would have broken Qwen2.5-VL
+  (added in 4.49.0).
+- ~~(c) Vendor-fork MiniCPM-o's modeling file~~ — superseded by the simpler
+  global Qwen2 patch.
+- ~~(d) Use the vision-only sibling MiniCPM-V-2.6 only~~ — we kept both;
+  now we have a 5-model suite.
 
 **Considerations for current model choices (#29 VLM suite):**
 

@@ -22,6 +22,37 @@ from PIL import Image, ImageOps
 _MODEL_CACHE: dict[str, tuple] = {}
 _TOKENIZER_CACHE: dict[str, object] = {}
 
+
+# ── Module-load patches for trust_remote_code × bnb compatibility ────────────
+def _patch_qwen2_init_weights_for_bnb() -> None:
+    """transformers Qwen2 `_init_weights` calls `.normal_()` on Linear weights.
+    When bnb 4-bit quantization is active, weights may already be uint8 (Byte)
+    tensors — `.normal_()` has no kernel for that dtype and crashes with
+    NotImplementedError. This matters specifically for MiniCPM-o-2.6 which
+    embeds a Qwen2 audio-language backbone; the other Qwen2-based models in
+    our suite (Qwen2.5-VL, MiniCPM-V-2.6) don't trigger this code path on
+    quantized weights, so the patch is a no-op for them.
+
+    The patch wraps `_init_weights` to early-return for uint8 weights,
+    leaving bnb's quantization untouched."""
+    import torch
+    import transformers.models.qwen2.modeling_qwen2 as qwen2_mod
+    if getattr(qwen2_mod.Qwen2PreTrainedModel._init_weights, "_bnb_safe", False):
+        return
+    _orig = qwen2_mod.Qwen2PreTrainedModel._init_weights
+
+    def _safe_init_weights(self, module):
+        if hasattr(module, "weight") and module.weight is not None:
+            if module.weight.dtype == torch.uint8:
+                return  # already bnb-quantized; skip random re-init
+        return _orig(self, module)
+
+    _safe_init_weights._bnb_safe = True  # type: ignore[attr-defined]
+    qwen2_mod.Qwen2PreTrainedModel._init_weights = _safe_init_weights
+
+
+_patch_qwen2_init_weights_for_bnb()
+
 REQUIRED_KEYS = ["rating", "misaligned", "unwanted_features", "fail_patterns", "notes"]
 
 _RETRY_PROMPT = (
