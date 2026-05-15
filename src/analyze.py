@@ -54,6 +54,8 @@ def _process_run(conn, run, model_key: str, promote_to_runs: bool) -> None:
             latency_s=result["latency_s"],
         )
         if promote_to_runs:
+            # VLM is the automated primary annotator for runs.rating;
+            # human annotations live in the separate annotations table.
             save_rating(
                 conn, run_id,
                 result["rating"],
@@ -77,6 +79,7 @@ def _process_run(conn, run, model_key: str, promote_to_runs: bool) -> None:
 
 def main() -> None:
     global _RUNNING
+    _RUNNING = True  # reset so main() can be called again in tests
     signal.signal(signal.SIGINT, _handle_sigint)
 
     parser = argparse.ArgumentParser(description="Annotate DB runs with active VLM model")
@@ -85,7 +88,10 @@ def main() -> None:
     parser.add_argument("--output-root", default=r"D:\Temp\yogamann-output")
     args = parser.parse_args()
 
-    db_path = Path(args.output_root) / "yogamann.db"
+    output_root = Path(args.output_root)
+    if not output_root.exists():
+        raise SystemExit(f"[analyze] --output-root does not exist: {output_root}")
+    db_path = output_root / "yogamann.db"
     conn = open_db(db_path)
 
     vlm_cfg = yaml.safe_load(
