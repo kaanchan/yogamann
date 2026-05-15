@@ -54,10 +54,10 @@ def _load_model(model_key: str, config: dict) -> tuple:
     repo = config["repo"]
     load_in_4bit = config.get("load_in_4bit", False)
 
-    from transformers import AutoProcessor, AutoModelForCausalLM, BitsAndBytesConfig
+    from transformers import AutoProcessor, AutoModelForVision2Seq, BitsAndBytesConfig
 
     bnb = BitsAndBytesConfig(load_in_4bit=True) if load_in_4bit else None
-    model = AutoModelForCausalLM.from_pretrained(
+    model = AutoModelForVision2Seq.from_pretrained(
         repo,
         quantization_config=bnb,
         device_map="auto",
