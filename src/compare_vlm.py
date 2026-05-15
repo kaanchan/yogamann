@@ -8,6 +8,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import traceback
 from pathlib import Path
 
 import yaml
@@ -100,14 +101,27 @@ def main() -> None:
                 )
                 conn.commit()
                 results.append(result)
-            except FileNotFoundError as exc:
-                print(f"[skip] run {run_id}: {exc}")
-            except VLMSchemaError as exc:
-                print(f"[skip] run {run_id} {model_key}: schema error — {exc}")
+            except (FileNotFoundError, VLMSchemaError) as exc:
+                print(f"[skip] run {run_id} {model_key}: {exc}")
+                results.append({
+                    "model_id": model_key,
+                    "rating": "[skip]",
+                    "misaligned": [],
+                    "unwanted_features": [],
+                    "fail_patterns": [],
+                    "notes": str(exc),
+                })
             except Exception as exc:  # noqa: BLE001
-                import traceback
                 print(f"[error] run {run_id} {model_key}: {exc}")
                 traceback.print_exc()
+                results.append({
+                    "model_id": model_key,
+                    "rating": "[error]",
+                    "misaligned": [],
+                    "unwanted_features": [],
+                    "fail_patterns": [],
+                    "notes": str(exc),
+                })
 
         _print_comparison(run_id, source_name, results)
 
