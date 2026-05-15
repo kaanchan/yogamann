@@ -6,6 +6,95 @@ differently next time.
 
 ---
 
+## 2026-05-15 (late eve, post-orchestration)
+
+### ADR-004 — Model-major batch orchestration with DB-driven resumability
+
+**Decision:** `src/compare_vlm.py` runs N images × M models in a model-major
+loop: outer iterates models (one resident at a time), inner iterates images
+in micro-batches of K (default 25). Each (run_id, model_id) annotation is
+committed to `vlm_annotations` immediately via `save_vlm_annotation`.
+Resumption uses `get_unanalyzed_runs(conn, model_id)` to skip already-done
+pairs unless `--force` is passed.
+
+**Why:** RTX 5080 Laptop has 15.92 GB VRAM. Each VLM in bnb 4-bit peaks at
+~7-9 GB during inference (weights + KV cache + activations on a 2-image
+prompt). No two models fit simultaneously. The previous image-major loop
+with a never-evicting `_MODEL_CACHE` would OOM on the second image of any
+multi-model run — it only worked in our testing because each test was a
+fresh Python process.
+
+Model-major also has the right cost shape: total cold-load cost is
+**N_models × 1**, not **N_models × N_images**. For a 1000-image run that's
+~2 minutes of swap overhead vs. **hours**.
+
+**Why not image-major with LRU eviction:** Same swap cost as model-major
+(must evict every model on every image anyway) with worse cache locality.
+The only place image-major wins is when you need *all model responses for
+image i before moving to image i+1* (e.g., cross-model voting). Our DB
+records each (image, model) pair independently, so this isn't a constraint.
+
+**Micro-batch boundary purpose:** Not for commit cadence (each save auto-
+commits). The boundary exists to (a) call `torch.cuda.empty_cache()` to
+release transient activation memory between iterations, and (b) emit a
+progress line every K images. K=25 was picked as a balance between
+progress visibility and overhead — adjust via `--batch-size` if a model
+turns out to have unusual memory characteristics.
+
+**Resumability invariant:** "If a row exists in `vlm_annotations` for
+`(run_id, model_id)`, that pair is done." This is the only state the
+orchestrator reads — there's no separate progress file, no journal, no
+crash-recovery code, no session/batch ID. Kill the process at any point;
+on next invocation it filters out the completed rows and continues. The
+`UNIQUE(run_id, model_id)` constraint on the table makes this trivially
+correct. Today's run and last week's run are indistinguishable to the
+filter — the state is pair-atomic, not session-tracked.
+
+**Failure handling:** Per-image `try/except` increments an error counter
+and continues to the next image. Three exception classes:
+- `FileNotFoundError` — source photo or render missing on disk
+- `VLMSchemaError` — model emitted unparseable JSON twice (after retry)
+- `Exception` — anything else (OOM, hardware fault, etc.) — full traceback
+  is printed but the run continues.
+
+Errors do NOT cause re-annotation on the next run — if a particular
+`(run_id, model_id)` always fails, it will be retried every time. To
+mark a pair as "permanently broken," insert a stub annotation manually
+or use `--force` deliberately. Acceptable for our scale; revisit if we
+see frequent persistent failures.
+
+**Empirical validation:** Confirmed working at this hardware (RTX 5080
+Laptop, 15.92 GB) on commit `aec7524`:
+- Smoke 1 (1 model, 1 image, all done): correctly identifies all-done state, 0s elapsed
+- Smoke 2 (4 models, 3 images, mixed done/todo): 6 ok / 0 err / 6 skipped, 113.6s, no OOM
+- Smoke 3 (re-run Smoke 2 immediately): 0 ok / 0 err / 12 skipped, 0s elapsed (no model loads)
+- Smoke 4 (`--force` on 3 Qwen-done images): 3 ok / 0 err / 0 skipped, 54.6s (full re-annotation)
+
+**Considerations for future choices:**
+
+- The micro-batch boundary is also the right place to add per-batch
+  metrics writes (mean latency, retry rate, etc.) if we want timeseries
+  data later. Currently we only emit a progress print — adding metrics
+  is a small change inside `_run_model_phase`.
+- The `--force` flag is "ignore the DB filter, redo everything." A
+  cheaper version would be "redo only failed annotations" — if we want
+  that, add an `--errors-only` flag that filters to `(run_id, model_id)`
+  pairs where the last annotation has an `[error]` rating. Easy follow-up.
+- For multi-GPU workstations: this orchestrator is single-GPU. Adding
+  GPU-parallel model phases (e.g., one model per GPU running concurrently)
+  is a separate change in scope to a future ADR.
+- If/when we need batch identity (for "show me yesterday's batch results"
+  or "rerun batch X with current model code"), add a `batch_runs` table
+  with `batch_id`, `started_at`, `args`, and tag each `vlm_annotations`
+  row with the creating `batch_id`. Currently out of scope.
+
+**Related:** #32 (transformers pinning + this orchestration),
+[`src/compare_vlm.py`](../src/compare_vlm.py),
+[`src/_batch_utils.py`](../src/_batch_utils.py),
+[`src/vlm_inference.py`](../src/vlm_inference.py) (`evict_model`, `evict_all`)
+
+---
+
 ## 2026-05-15 (eve, post-research)
 
 ### ADR-003 — Final empirical pin: `transformers==4.49.0`, 4 of 5 VLMs working
@@ -65,7 +154,10 @@ uint8/Byte tensors. PyTorch's `normal_kernel_cpu` is not implemented for Byte
 dtype. This is a bnb × native-Qwen2 interaction inside a custom-code wrapper —
 none of the monkeypatches that fixed InternVL/Molmo/MiniCPM-V are in the right
 place to fix this. Possible paths:
-- (a) Disable bnb 4-bit for MiniCPM-o (load in bf16 — ~16 GB VRAM)
+- (a) ~~Disable bnb 4-bit and load in bf16~~ — **not viable on this hardware.**
+  An 8B model in bf16 needs ~16 GB just for weights, leaving zero room for
+  KV cache on the 15.92 GB RTX 5080 Laptop. Reserved for a future workstation
+  upgrade or running MiniCPM-o on CPU (very slow but possible).
 - (b) Find an even older transformers pin where this init path is different
 - (c) Vendor-fork MiniCPM-o's modeling file to suppress weight init for
   already-quantized modules

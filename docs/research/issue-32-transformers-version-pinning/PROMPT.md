@@ -14,8 +14,8 @@ We maintain a local-only Vision-Language-Model annotation pipeline that scores y
 
 - **OS:** Windows 11, Python **3.13.5** (CPython, 64-bit)
 - **PyTorch:** **2.13.0.dev** nightly built against **CUDA 13.0** (`cu130` wheel)
-- **GPU:** Single consumer-grade card, **24 GB VRAM** budget (think RTX 4090 / 3090 class)
-- **Quantization:** `bitsandbytes` 4-bit (`load_in_4bit=True`) — essential, our 8B models do not fit in fp16 on 24 GB once activations + KV cache are included
+- **GPU:** Single consumer-grade card, **15.92 GB VRAM** budget (RTX 5080 Laptop GPU — corrected from the original "24 GB" filter used in the first deep-research pass; revisit any Q3 model recommendations exceeding 16 GB peak with that constraint in mind)
+- **Quantization:** `bitsandbytes` 4-bit (`load_in_4bit=True`) — essential, our 8B models do not fit in fp16 on 16 GB once activations + KV cache are included
 - **Inference API in use:** plain `transformers.pipeline(...)` or `AutoModelForImageTextToText.from_pretrained(...)` + processor; `trust_remote_code=True` for non-native models; we are open to switching to `vLLM` / `lmdeploy` / `SGLang` if there is a clear win
 - **Constraint:** local inference only — no API calls to hosted endpoints. Reproducibility matters: the venv must rebuild from the lockfile months from now and still work.
 
@@ -100,7 +100,7 @@ What new (2025-late / 2026) open-weight vision-language models have been release
 
 - Accept **≥2 images per prompt** natively (no chunked-inference workarounds)
 - Reliably emit **structured JSON** (cite benchmark or model card evidence — `JSONSchemaBench`, IFEval-multimodal, model-card examples, etc.)
-- Run locally on **≤24 GB VRAM** in 4-bit quantization
+- Run locally on **≤16 GB VRAM** in 4-bit quantization (RTX 5080 Laptop budget — see §2 note about the corrected hardware constraint)
 - Open weights with **permissive license** (Apache-2.0, MIT, Llama Community License with commercial OK — flag any non-commercial clauses)
 - Show **competitive performance on pose / spatial / fine-grained-visual benchmarks** — e.g. `MMVP`, `RealWorldQA`, `BLINK`, `SpatialBench`, `BodyHands`, or anything pose-specific
 
