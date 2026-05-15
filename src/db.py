@@ -457,9 +457,9 @@ def save_vlm_annotation(
     run_id: int,
     model_id: str,
     rating: str,
-    misaligned: list[str],
-    unwanted_features: list[str],
-    fail_patterns: list[str],
+    misaligned: list[str] | None,
+    unwanted_features: list[str] | None,
+    fail_patterns: list[str] | None,
     notes: str,
     raw_output: str,
     latency_s: float,
@@ -481,11 +481,13 @@ def save_vlm_annotation(
             latency_s=excluded.latency_s
     """, (
         run_id, model_id, now, rating,
-        json.dumps(misaligned),
-        json.dumps(unwanted_features),
-        json.dumps(fail_patterns),
+        # VLM list columns stored as JSON (not CSV like annotations table) — supports values with commas
+        json.dumps(misaligned) if misaligned is not None else None,
+        json.dumps(unwanted_features) if unwanted_features is not None else None,
+        json.dumps(fail_patterns) if fail_patterns is not None else None,
         notes, raw_output, latency_s,
     ))
+    conn.commit()
 
 
 def get_vlm_annotations(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
@@ -514,7 +516,7 @@ def get_unanalyzed_runs(
         ORDER BY r.timestamp DESC
     """
     if limit:
-        q += f" LIMIT {limit}"
+        q += f" LIMIT {int(limit)}"
     return conn.execute(q, (model_id,)).fetchall()
 
 
