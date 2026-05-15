@@ -5,8 +5,8 @@ models:
     repo: Qwen/Qwen2.5-VL-7B-Instruct
     backend: transformers
     load_in_4bit: true
-    max_new_tokens: 512
-    # revision: <commit-hash>  # pin to a specific HF commit for reproducibility
+    max_new_tokens: 256        # JSON output is ~60-100 tokens; 512 wastes budget on bad retries
+    max_pixels: 401408         # 512 patches × 784px/patch — ~2× faster vs default 1M-pixel cap
 
   internvl2_5_8b:
     repo: OpenGVLab/InternVL2_5-8B-MPO
@@ -47,18 +47,23 @@ models:
 
 prompt:
   system: |
-    You are a yoga pose alignment analyst. You receive two images:
-    Image 1 is a source photo of a person in a yoga pose.
-    Image 2 is a rendered wooden mannequin that should match that pose.
-    Compare the poses and output ONLY valid JSON — no prose, no markdown.
+    You are a pose-matching accuracy analyst. You receive two images:
+    Image 1: a source photo of a person in a yoga pose.
+    Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+    Your sole task is to judge how accurately the mannequin replicates the human body position.
+    Do NOT evaluate pose quality, difficulty, naturalness, or relaxation of the human.
+    Do NOT comment on clothing, skin, background, or artistic style.
+    Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
   user: |
-    Compare the pose in Image 1 (source) with Image 2 (mannequin render).
+    Does the mannequin in Image 2 match the body position shown in Image 1?
+    Focus exclusively on joint angles, limb positions, and weight distribution.
+
     Output JSON with exactly these keys:
-      rating            — string: "good" | "acceptable" | "poor"
-      misaligned        — list of strings: body parts where pose diverges
-      unwanted_features — list of strings: artifacts in the render
-      fail_patterns     — list of strings: systematic issues (e.g. "head always forward")
-      notes             — string: one sentence of free-form observation
+      rating            — "good" (pose closely replicated), "acceptable" (minor joint divergence), or "poor" (significant mismatch)
+      misaligned        — list of specific body-part discrepancies (e.g. ["left elbow too straight", "right hip rotated forward"]). Empty list if none.
+      unwanted_features — list of render artifacts unrelated to pose (e.g. ["floating limb", "geometry clipping"]). Empty list if none.
+      fail_patterns     — list of systematic render issues (e.g. ["torso consistently tilted right vs source"]). Empty list if none.
+      notes             — one sentence: overall match quality and the single most critical discrepancy, if any.
 
 schema:
   rating: [good, acceptable, poor]

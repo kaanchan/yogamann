@@ -123,6 +123,15 @@ def _load_model(model_key: str, config: dict) -> tuple:
         proc_kwargs["revision"] = revision
     processor = AutoProcessor.from_pretrained(repo, **proc_kwargs)
     _MODEL_CACHE[model_key] = (model, processor)
+    try:
+        import torch
+        if torch.cuda.is_available():
+            used = torch.cuda.memory_allocated() // 1024 // 1024
+            reserved = torch.cuda.memory_reserved() // 1024 // 1024
+            total = torch.cuda.get_device_properties(0).total_memory // 1024 // 1024
+            print(f"  [load] {model_key} loaded — VRAM alloc={used}MB reserved={reserved}MB total={total}MB", flush=True)
+    except Exception:
+        pass
     return model, processor
 
 
@@ -363,7 +372,18 @@ def _infer(model, processor, messages: list, images: list, config: dict) -> str:
     text = processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )
-    inputs = processor(text=text, images=images, return_tensors="pt").to("cuda")
+    # max_pixels caps Qwen2.5-VL's dynamic patch count (28×28 px/patch).
+    # Default 1M pixels → ~1000 patches/image × 2 images = ~2000 visual tokens → slow.
+    # 401408 = 512 patches/image → ~1024 tokens total, ~2× faster with minimal quality loss.
+    # Set attribute directly (guaranteed path) AND pass as kwarg (forwarded in newer transformers).
+    max_px = config.get("max_pixels", 401_408)
+    if hasattr(processor, "image_processor"):
+        processor.image_processor.max_pixels = max_px
+    inputs = processor(
+        text=text, images=images, return_tensors="pt", max_pixels=max_px
+    ).to("cuda")
+    seq_len = inputs.input_ids.shape[1]
+    print(f"  [qwen _infer] seq_len={seq_len}  max_pixels={max_px}  max_new_tokens={max_new_tokens}", flush=True)
     try:
         output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
     except RuntimeError as exc:
