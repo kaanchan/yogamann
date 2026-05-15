@@ -88,6 +88,24 @@ CREATE TABLE IF NOT EXISTS annotations (
 CREATE INDEX IF NOT EXISTS idx_ann_run    ON annotations(run_id);
 CREATE INDEX IF NOT EXISTS idx_ann_user   ON annotations(user_id);
 CREATE INDEX IF NOT EXISTS idx_ann_rating ON annotations(rating);
+
+CREATE TABLE IF NOT EXISTS vlm_annotations (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id            INTEGER NOT NULL REFERENCES runs(id),
+    model_id          TEXT    NOT NULL,
+    timestamp         TEXT    NOT NULL,
+    rating            TEXT,
+    misaligned        TEXT,
+    unwanted_features TEXT,
+    fail_patterns     TEXT,
+    notes             TEXT,
+    raw_output        TEXT,
+    latency_s         REAL,
+    UNIQUE(run_id, model_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vlm_run   ON vlm_annotations(run_id);
+CREATE INDEX IF NOT EXISTS idx_vlm_model ON vlm_annotations(model_id);
 """
 
 # ── Connection ─────────────────────────────────────────────────────────────────
@@ -432,6 +450,170 @@ def get_stats(conn: sqlite3.Connection) -> dict:
     gold   = conn.execute("SELECT COUNT(*) FROM runs WHERE rating='Gold'").fetchone()[0]
     sources = conn.execute("SELECT COUNT(*) FROM source_images").fetchone()[0]
     return {"total": total, "rated": rated, "gold": gold, "sources": sources}
+
+# ── VLM annotation helpers ─────────────────────────────────────────────────────
+def save_vlm_annotation(
+    conn: sqlite3.Connection,
+    run_id: int,
+    model_id: str,
+    rating: str,
+    misaligned: list[str] | None,
+    unwanted_features: list[str] | None,
+    fail_patterns: list[str] | None,
+    notes: str,
+    raw_output: str,
+    latency_s: float,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("""
+        INSERT INTO vlm_annotations
+            (run_id, model_id, timestamp, rating, misaligned, unwanted_features,
+             fail_patterns, notes, raw_output, latency_s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, model_id) DO UPDATE SET
+            timestamp=excluded.timestamp,
+            rating=excluded.rating,
+            misaligned=excluded.misaligned,
+            unwanted_features=excluded.unwanted_features,
+            fail_patterns=excluded.fail_patterns,
+            notes=excluded.notes,
+            raw_output=excluded.raw_output,
+            latency_s=excluded.latency_s
+    """, (
+        run_id, model_id, now, rating,
+        # VLM list columns stored as JSON (not CSV like annotations table) — supports values with commas
+        json.dumps(misaligned) if misaligned is not None else None,
+        json.dumps(unwanted_features) if unwanted_features is not None else None,
+        json.dumps(fail_patterns) if fail_patterns is not None else None,
+        notes, raw_output, latency_s,
+    ))
+    conn.commit()
+
+
+def get_vlm_annotations(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM vlm_annotations WHERE run_id=? ORDER BY model_id",
+        (run_id,),
+    ).fetchall()
+
+
+def get_vlm_comparison_page(
+    conn: sqlite3.Connection,
+    limit: int = 25,
+    offset: int = 0,
+    models: list | None = None,
+    disagree_only: bool = False,
+    ref_user_id: int | None = None,
+) -> tuple:
+    """Return (rows, total_count) of runs with ≥1 VLM annotation, pivoted by model.
+
+    Each row has: run_id, source_sha256, output_png, timestamp, source_path,
+    {model}_rating, {model}_notes, {model}_latency per active model,
+    ref_rating and ref_notes from the reference human reviewer (or NULL).
+    """
+    _KNOWN_MODELS = [
+        "qwen2_5_vl_7b", "internvl2_5_8b", "minicpm_v_2_6",
+        "molmo_7b_d", "minicpm_o_2_6",
+    ]
+    active = models if models else _KNOWN_MODELS
+
+    pivot_joins = "\n".join(
+        f"LEFT JOIN vlm_annotations vlm_{m} "
+        f"ON vlm_{m}.run_id = r.id AND vlm_{m}.model_id = '{m}'"
+        for m in active
+    )
+    pivot_select = ", ".join(
+        f"vlm_{m}.rating AS {m}_rating, "
+        f"vlm_{m}.notes AS {m}_notes, "
+        f"vlm_{m}.misaligned AS {m}_misaligned, "
+        f"vlm_{m}.unwanted_features AS {m}_unwanted, "
+        f"vlm_{m}.latency_s AS {m}_latency"
+        for m in active
+    )
+    ref_join = (
+        f"LEFT JOIN annotations ref_ann "
+        f"ON ref_ann.run_id = r.id AND ref_ann.user_id = {int(ref_user_id)}"
+        if ref_user_id else ""
+    )
+    ref_select = (
+        "ref_ann.rating AS ref_rating, ref_ann.notes AS ref_notes"
+        if ref_user_id else "NULL AS ref_rating, NULL AS ref_notes"
+    )
+    has_any = " OR ".join(f"vlm_{m}.id IS NOT NULL" for m in active)
+
+    if disagree_only:
+        first_non_null = (
+            "SELECT va2.rating FROM vlm_annotations va2 "
+            "WHERE va2.run_id = r.id AND va2.rating IS NOT NULL LIMIT 1"
+        )
+        same_clauses = " AND ".join(
+            f"(vlm_{m}.rating IS NULL OR vlm_{m}.rating = ({first_non_null}))"
+            for m in active
+        )
+        disagree_clause = f"AND ({has_any}) AND NOT ({same_clauses})"
+    else:
+        disagree_clause = ""
+
+    sql = f"""
+        SELECT r.id AS run_id,
+               r.source_sha256,
+               r.output_png,
+               r.timestamp,
+               s.path AS source_path,
+               {pivot_select},
+               {ref_select}
+        FROM runs r
+        JOIN source_images s ON r.source_sha256 = s.sha256
+        {pivot_joins}
+        {ref_join}
+        WHERE ({has_any})
+        {disagree_clause}
+        ORDER BY r.timestamp DESC
+    """
+    count_sql = f"""
+        SELECT COUNT(*) FROM runs r
+        JOIN source_images s ON r.source_sha256 = s.sha256
+        {pivot_joins}
+        WHERE ({has_any})
+        {disagree_clause}
+    """
+    total = conn.execute(count_sql).fetchone()[0]
+    rows  = conn.execute(sql + f" LIMIT {int(limit)} OFFSET {int(offset)}").fetchall()
+    return rows, total
+
+
+def count_vlm_annotations(conn: sqlite3.Connection, model_id: str) -> int:
+    """Return the number of vlm_annotations rows for a model — used to
+    report 'already done, skipping' counts at the start of a batch."""
+    row = conn.execute(
+        "SELECT COUNT(*) FROM vlm_annotations WHERE model_id = ?",
+        (model_id,),
+    ).fetchone()
+    return row[0] if row else 0
+
+
+def get_unanalyzed_runs(
+    conn: sqlite3.Connection,
+    model_id: str,
+    limit: int = 0,
+) -> list[sqlite3.Row]:
+    """Returns runs with no vlm_annotations entry for model_id.
+    Each row exposes: id, output_png, source_path (from source_images.path).
+    """
+    q = """
+        SELECT r.id, r.output_png, si.path as source_path
+        FROM runs r
+        JOIN source_images si ON r.source_sha256 = si.sha256
+        WHERE NOT EXISTS (
+            SELECT 1 FROM vlm_annotations va
+            WHERE va.run_id = r.id AND va.model_id = ?
+        )
+        ORDER BY r.timestamp DESC
+    """
+    if limit:
+        q += f" LIMIT {int(limit)}"
+    return conn.execute(q, (model_id,)).fetchall()
+
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

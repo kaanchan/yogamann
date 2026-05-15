@@ -9,6 +9,17 @@ $Sample  = "input\yoga-pose-sample-4.jpg"
 $PipelineProfile = "yoga_asana"
 $env:YOGAMANN_LOG_LEVEL = $LogLevel
 
+# Load .env if present (gitignored — keeps secrets out of the repo)
+$EnvFile = Join-Path $PSScriptRoot ".env"
+if (Test-Path $EnvFile) {
+    Get-Content $EnvFile | Where-Object { $_ -match '^\s*\w' } | ForEach-Object {
+        $k, $v = $_ -split '=', 2
+        if (-not [System.Environment]::GetEnvironmentVariable($k.Trim())) {
+            [System.Environment]::SetEnvironmentVariable($k.Trim(), $v.Trim(), "Process")
+        }
+    }
+}
+
 function Invoke-Step {
     param([string]$Label, [scriptblock]$Block)
     Write-Host "`n==> $Label" -ForegroundColor Cyan
@@ -71,11 +82,28 @@ switch ($Target) {
             & $Python src/download_models.py
         }
     }
+    "vlm-download" {
+        if (-not $env:HF_TOKEN) {
+            Write-Host "`n[WARN] HF_TOKEN not set — downloads will be slower (unauthenticated)." -ForegroundColor Yellow
+            Write-Host "       Get a free read token at https://huggingface.co/settings/tokens" -ForegroundColor Yellow
+        }
+        Invoke-Step "Download VLM models (hf_transfer)" {
+            & $Python src/download_models.py --vlm-only
+        }
+    }
+    "analyze" {
+        $env:HF_HUB_OFFLINE = "1"
+        Invoke-Step "Annotate pending runs with active VLM model" {
+            & $Python src/analyze.py --once --output-root $OutputRoot
+        }
+    }
     default {
         Write-Host "Usage: .\make.ps1 [-Target <target>] [-LogLevel <level>]" -ForegroundColor Yellow
         Write-Host ""
         Write-Host "Targets:"
-        Write-Host "  download  pre-fetch all HF model weights (~10 GB, one-time)"
+        Write-Host "  download      pre-fetch all HF model weights (~10 GB, one-time)"
+        Write-Host "  vlm-download  download VLM model weights (~15-40 GB depending on models)"
+        Write-Host "  analyze       annotate pending DB runs with active VLM model (--once)"
         Write-Host "  test      single image + open gallery (default)"
         Write-Host "  test-all  all input images + open gallery"
         Write-Host "  diag      hardware + import diagnostics"

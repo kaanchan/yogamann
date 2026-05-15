@@ -1,5 +1,51 @@
 # PROGRESS
 
+## 2026-05-15 (very late eve) — MiniCPM-o-2.6 resolved; 5/5 VLMs working (#32)
+
+- Diagnosed: native Qwen2 `_init_weights` (in `transformers.models.qwen2.modeling_qwen2:382`) calls `.normal_()` on bnb-quantized uint8 weights when MiniCPM-o's omni stack triggers post-load weight init. PyTorch has no `normal_kernel` for Byte dtype → crash.
+- Fix: `_patch_qwen2_init_weights_for_bnb()` in `src/vlm_inference.py` — wraps `Qwen2PreTrainedModel._init_weights` with an early-return for uint8 weights. Applied at module load (one-time, idempotent via `_bnb_safe` sentinel). Benign for the other Qwen2-based models (Qwen2.5-VL, MiniCPM-V-2.6) since they don't trigger this init path on quantized weights — verified by regression: Qwen2.5-VL post-patch still produces `rating="good"` in 27.2s, identical to pre-patch behavior.
+- MiniCPM-o-2.6 re-enabled in `profiles/vlm.yml` with `inference_style: minicpm_v` (sibling models share the `model.chat(image=None, msgs=[...], tokenizer=)` API).
+- Empirical validation through orchestrator: 1 ok / 0 err / 29.9s on run 981. Output: `rating="good"`, `misaligned=["torso"]`, 10.3s pure-inference latency. Load: 19.5s, 6.25 GB VRAM.
+- ADR-003 updated to reflect resolution. PENDING-TASK.md cleared.
+- All 5 VLMs in our comparison suite now operational on transformers==4.49.0.
+
+## 2026-05-15 (late eve) — VLM batch orchestration refactor (#32)
+
+- Inverted `compare_vlm.py` loop from image-major to model-major. Each model phase: load → annotate K-image micro-batches → evict. Total cold-load cost is now N_models, not N_models × N_images.
+- Added `evict_model(key)` + `evict_all()` to `vlm_inference.py` — public eviction so callers manage GPU memory between phases. Verified empirically: 0.00 → 5.82 GB (load) → 0.00 GB (evict) — full VRAM freed.
+- DB-driven resumability via existing `get_unanalyzed_runs`. Each `save_vlm_annotation` auto-commits, so kill-and-resume picks up precisely from the last completed image. Pair-atomic state model — no session/batch ID, idempotent at the (run_id, model_id) level.
+- New CLI flags on `compare_vlm.py`: `--models`, `--force`, `--batch-size` (default 25).
+- New module `src/_batch_utils.py` with `chunked()` + `format_summary()`, pytest-covered (7/7 in 0.05s). New DB helper `count_vlm_annotations(conn, model_id)`.
+- Architecture-decisions ADR-004 added. ADR-003 + PROMPT.md corrected to 15.92 GB VRAM (RTX 5080 Laptop), not 24 GB. The bf16 MiniCPM-o fallback path in ADR-003 marked not-viable on this hardware.
+- Acceptance smoke (commit aec7524): 4 models × 10 images, 28 new annotations, 12 skipped, 0 errors, 382.9s total wall clock. No OOM. Per-model phase elapsed: Qwen 95s, InternVL 51s, MiniCPM-V 113s, Molmo 124s.
+- Plan written via `superpowers:writing-plans` skill at `docs/superpowers/plans/2026-05-15-vlm-batch-orchestration.md`. Executed in 6 waves with parallel sub-agents on independent tasks (some Bash-permission denied; consolidated inline in main session).
+- Commits: `48e531c` (evict helpers), `1157814` (db count), `da72d3e` (_batch_utils+tests), `21a679f` (flags), `aec7524` (loop inversion), `39036a3` (docs + ADR-004).
+
+## 2026-05-15 (eve) — transformers v5 breakage + per-model dispatcher investigation (#32), feature/v4-downgrade-testing
+
+- Diagnosed: `(yogamann)` venv had `transformers==5.8.0` (unpinned install). v5 silently broke 3 of 4 VLMs via `trust_remote_code` rot.
+- Issues opened: #32 (transformers version pinning), #33 (pose pipeline evaluation alternatives).
+- Research folders created with deep-research prompts + agent-written deliverables: `docs/research/issue-32-transformers-version-pinning/`, `docs/research/issue-33-pose-pipeline-evaluation/`. User dropped their independent deep-research results into both folders during this session.
+- Branched `feature/v4-downgrade-testing` from `feature/vlm-analysis@440b99c`. Downgraded transformers 5.8.0 → 4.57.6 in venv. Qwen2.5-VL confirmed working on v4 (no regression).
+- Implemented per-model inference dispatcher in `src/vlm_inference.py`: `_load_model` skips processor when `inference_style` set, `annotate()` dispatches via lambda. New helpers: `_get_tokenizer`, `_internvl_preprocess`, `_infer_internvl`, `_infer_molmo`, `_patch_internvl_generation_mixin`. Added `AutoModelForCausalLM` to model-load fallback chain.
+- Findings (documented in ADR-002 at `docs/architecture-decisions.md`): the dispatcher pattern works architecturally, but each `trust_remote_code` model has *independent* rot beyond just transformers version — InternVL needs 4+ cascading v4.50+ patches (GenerationMixin, generation_config, DynamicCache), Molmo's hosted preprocessing file has unconditional `import tensorflow` that HF's import-check can't deduce is dead code. Dispatchers retained as learning artifacts + reference implementations.
+- Architecture lessons doc created: `docs/architecture-decisions.md` ADR-001 (pin ML libs like prod DB drivers) + ADR-002 (per-model dispatcher pattern + trust_remote_code multi-axis rot). Both drafted by parallel background agents while main session worked on the dispatcher implementation.
+- Side-quest dependencies installed during the v5 chase (still in venv on this branch): `soundfile`, `torchaudio` (cu130 nightly matched), `librosa` + transitive (numba/llvmlite/sklearn), `sentencepiece`. Carried over to v4 venv state.
+- Commit: 4d5d4cc (1926 insertions, 13 files). Pushed to origin. PR not yet opened — branch is exploratory; merge decision pending #32 deep-research review.
+
+## 2026-05-15 — VLM Pose Analysis implementation (#29), feature/vlm-analysis
+
+- Implemented all 7 tasks via Subagent-Driven Development skill
+- Task 1: vlm_annotations DDL + save/get/unanalyzed helpers in db.py (5d2d161, 00d4c9c)
+- Task 2: profiles/vlm.yml + bitsandbytes dep in pyproject.toml (323d369)
+- Task 3: tests/conftest.py + 6 DB tests in tests/test_db_vlm.py (e12ecfe)
+- Task 4: src/vlm_inference.py lazy-cached inference core + 13 unit tests (886d5ee)
+- Task 5: src/compare_vlm.py multi-model comparison harness (03b11f2, 94e423c)
+- Task 6: src/analyze.py polling daemon + --once batch mode (594c9bc, abfbbf6)
+- Task 7: download_models.py refactor (PIPELINE_MODELS+VLM_MODELS, --vlm-only) + make.ps1 targets (7c8721f, aef3e61)
+- All 19 tests passing; branch pushed to origin/feature/vlm-analysis
+- Issue #29 open; branch kept for user to merge/PR when ready
+
 ## 2026-05-13 — PM reconciliation, push to remote, ctx-upgrade
 
 - Confirmed #25 (README, 3c6b800) and #26 (multi-batch, d428c63) already committed from prior sessions
