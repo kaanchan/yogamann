@@ -110,6 +110,36 @@ def _get_tokenizer(repo: str, revision: str | None = None, offline: bool = False
     return tok
 
 
+# ── Eviction (public — callers manage GPU memory between model phases) ───────
+def evict_model(model_key: str) -> None:
+    """Drop a cached model and free its GPU memory.
+
+    Safe to call when model_key was never loaded — that's a no-op.
+    Always clears the tokenizer entry too (tokenizers are small but
+    keeping them around obscures which models are 'loaded').
+    """
+    import gc
+    if model_key in _MODEL_CACHE:
+        model, _ = _MODEL_CACHE.pop(model_key)
+        del model
+    # Also drop tokenizers cached under the model's repo (best-effort).
+    _TOKENIZER_CACHE.clear()
+    gc.collect()
+    try:
+        import torch
+        if torch.cuda.is_available():
+            torch.cuda.empty_cache()
+    except ImportError:
+        pass
+
+
+def evict_all() -> None:
+    """Drop all cached models and tokenizers. Same semantics as
+    evict_model called for every cached key."""
+    for key in list(_MODEL_CACHE.keys()):
+        evict_model(key)
+
+
 # ── Prompt ───────────────────────────────────────────────────────────────────
 def _build_messages(prompt: dict, backend: str, extra_user: str | None = None) -> list:
     user_text = extra_user if extra_user else prompt["user"]
