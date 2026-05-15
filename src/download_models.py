@@ -54,9 +54,9 @@ VLM_MODELS = [
         "VLM pose analyzer — secondary model (~16 GB)",
     ),
     (
-        "openbmb/MiniCPM-V-2_6",
+        "openbmb/MiniCPM-o-2_6",
         None, None,
-        "VLM pose analyzer — lightweight model (~8 GB)",
+        "VLM pose analyzer — lightweight model, successor to MiniCPM-V 2.6 (~8 GB)",
     ),
     (
         "allenai/Molmo-7B-D-0924",

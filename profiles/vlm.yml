@@ -13,8 +13,8 @@ models:
     load_in_4bit: true
     max_new_tokens: 512
 
-  minicpm_v_4_6:
-    repo: openbmb/MiniCPM-V-2_6
+  minicpm_o_2_6:
+    repo: openbmb/MiniCPM-o-2_6
     backend: transformers
     load_in_4bit: true
     max_new_tokens: 512
