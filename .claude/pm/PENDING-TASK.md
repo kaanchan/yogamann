@@ -25,8 +25,15 @@ Target (batch=2): ~4s/image effective; (batch=4): ~2.5s/image effective
 | `src/compare_vlm.py` | Inner GPU-batch loop in `_run_model_phase()`, `--vlm-batch-size` flag |
 | `profiles/vlm.yml` | Add `vlm_batch_size: 2` under `qwen2_5_vl_7b` only |
 
-### Sub-tasks (build sequence)
+### Sub-tasks (build sequence) — SESSION 2026-05-15 AGENT DISPATCH
 - [ ] Open GH issue; note issue number in this file
+- [ ] **WAVE 1 (parallel agents, worktree isolation)**
+  - [ ] Agent A: `_infer_batch()` + `annotate_batch()` in vlm_inference.py
+  - [ ] Agent B: `vlm_batch_size: 2` in profiles/vlm.yml
+  - [ ] Merge both Wave 1 branches → feature/batched-inference
+- [ ] **WAVE 2 (sequential, after Wave 1 merged)**
+  - [ ] Agent C: inner-loop + CLI changes in compare_vlm.py
+  - [ ] Merge Wave 2 branch → feature/batched-inference
 - [ ] Phase 1 — `_infer_batch()` in vlm_inference.py
   - After existing `_infer()` (~line 399)
   - Signature: `(model, processor, messages_list, images_list, config) -> list[str]`

@@ -399,6 +399,54 @@ def _infer(model, processor, messages: list, images: list, config: dict) -> str:
     return processor.batch_decode(generated, skip_special_tokens=True)[0]
 
 
+# ── Batched inference (Qwen-style only) ───────────────────────────────────────
+def _infer_batch(model, processor, messages_list: list, images_list: list, config: dict) -> list[str]:
+    """Run a batched forward pass for multiple (photo, render) pairs.
+
+    images_list must be flat-interleaved: [photo_0, render_0, photo_1, render_1, ...]
+    The processor assigns images to each text string by counting <image> tokens, so
+    order is critical. The caller (annotate_batch) is responsible for building this order.
+    """
+    import torch
+
+    max_new_tokens = config.get("max_new_tokens", 256)
+    max_image_side = config.get("max_image_side", 1024)
+    max_px = config.get("max_pixels", 401_408)
+
+    all_images = [_resize_for_vlm(img, max_image_side) for img in images_list]
+
+    if hasattr(processor, "image_processor"):
+        processor.image_processor.max_pixels = max_px
+
+    texts = [
+        processor.apply_chat_template(msgs, tokenize=False, add_generation_prompt=True)
+        for msgs in messages_list
+    ]
+
+    inputs = processor(
+        text=texts, images=all_images, return_tensors="pt", padding=True, max_pixels=max_px
+    ).to("cuda")
+
+    try:
+        output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
+    except RuntimeError as exc:
+        if "out of memory" in str(exc).lower():
+            torch.cuda.empty_cache()
+            raise MemoryError(f"GPU OOM in batch inference: {exc}") from exc
+        raise
+    except Exception as exc:
+        # Catch torch.cuda.OutOfMemoryError if available (PyTorch >= 1.13)
+        oom_type = getattr(torch.cuda, "OutOfMemoryError", None)
+        if oom_type is not None and isinstance(exc, oom_type):
+            torch.cuda.empty_cache()
+            raise MemoryError(f"GPU OOM in batch inference: {exc}") from exc
+        raise
+
+    # All rows in inputs.input_ids are the same padded length — slice uniformly.
+    generated = [output_ids[i][inputs.input_ids.shape[1]:] for i in range(len(texts))]
+    return processor.batch_decode(generated, skip_special_tokens=True)
+
+
 # ── Parsing + validation ──────────────────────────────────────────────────────
 def _parse_output(raw: str) -> dict:
     text = raw.strip()
@@ -478,3 +526,139 @@ def annotate(
         "raw_output": raw,
         "latency_s": latency_s,
     }
+
+
+def annotate_batch(
+    pairs: list[tuple],
+    model_key: str | None = None,
+    config_path: Path | None = None,
+    _batch_size_override: int | None = None,
+) -> list[dict | Exception]:
+    """Annotate multiple (photo_path, render_path) pairs in a single batched GPU call.
+
+    Returns a list of the same length as ``pairs``. Each element is either an
+    annotation dict (same shape as ``annotate()`` returns) or an Exception instance.
+
+    Batch path is Qwen-style only. Models with ``inference_style`` set fall back to
+    sequential single-item ``annotate()`` calls automatically.
+
+    ``images_list`` passed to ``_infer_batch`` is flat-interleaved:
+    [photo_0, render_0, photo_1, render_1, ...]. The processor counts <image> tokens
+    per text string to assign images — the order here is what makes that work.
+    """
+    pairs = [(Path(p), Path(r)) for p, r in pairs]
+
+    # Pre-validate: store FileNotFoundError for any missing path immediately.
+    results: list[dict | Exception | None] = [None] * len(pairs)
+    valid_indices: list[int] = []
+    for i, (photo_path, render_path) in enumerate(pairs):
+        if not photo_path.exists():
+            results[i] = FileNotFoundError(f"Photo not found: {photo_path}")
+        elif not render_path.exists():
+            results[i] = FileNotFoundError(f"Render not found: {render_path}")
+        else:
+            valid_indices.append(i)
+
+    if not valid_indices:
+        return results  # type: ignore[return-value]
+
+    # Load config and model once for all valid pairs.
+    config = _load_config(model_key, config_path)
+    key = config["model_key"]
+    model, processor = _load_model(key, config)
+
+    # Compatibility gate: non-qwen_style models use their own chat APIs — fall back
+    # to sequential single-item annotate() calls.
+    if config.get("inference_style"):
+        for i, (photo_path, render_path) in enumerate(pairs):
+            if isinstance(results[i], Exception):
+                continue
+            try:
+                results[i] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path)
+            except Exception as exc:
+                results[i] = exc
+        return results  # type: ignore[return-value]
+
+    eff_batch = min(len(valid_indices), _batch_size_override or config.get("vlm_batch_size", 1))
+
+    # Fall back to sequential if batch size is 1 or only one valid pair.
+    if eff_batch <= 1 or len(valid_indices) <= 1:
+        for idx in valid_indices:
+            photo_path, render_path = pairs[idx]
+            try:
+                results[idx] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path)
+            except Exception as exc:
+                results[idx] = exc
+        return results  # type: ignore[return-value]
+
+    # GPU batch path.
+    messages = _build_messages(config["prompt"], config.get("backend", "transformers"))
+
+    # Build flat-interleaved images_list and replicated messages_list.
+    images_list: list = []
+    messages_list: list = []
+    for idx in valid_indices:
+        photo_path, render_path = pairs[idx]
+        photo = ImageOps.exif_transpose(Image.open(photo_path).convert("RGB"))
+        render = Image.open(render_path).convert("RGB")
+        images_list.extend([photo, render])   # interleaved: photo first, then render
+        messages_list.append(messages)
+
+    try:
+        t0 = time.perf_counter()
+        raw_outputs = _infer_batch(model, processor, messages_list, images_list, config)
+        latency_s = (time.perf_counter() - t0) / len(valid_indices)
+
+        for list_pos, idx in enumerate(valid_indices):
+            raw = raw_outputs[list_pos]
+            try:
+                data = _parse_output(raw)
+            except json.JSONDecodeError:
+                # Per-item retry using single-item _infer() — NOT _infer_batch().
+                photo_path, render_path = pairs[idx]
+                photo = ImageOps.exif_transpose(Image.open(photo_path).convert("RGB"))
+                render = Image.open(render_path).convert("RGB")
+                retry_messages = messages + [
+                    {"role": "assistant", "content": raw},
+                    {"role": "user", "content": _RETRY_PROMPT},
+                ]
+                raw = _infer(model, processor, retry_messages, [photo, render], config)
+                data = _parse_output(raw)
+            try:
+                _validate(data)
+            except VLMSchemaError as exc:
+                results[idx] = exc
+                continue
+            results[idx] = {
+                "model_id": key,
+                "rating": data["rating"],
+                "misaligned": data.get("misaligned", []),
+                "unwanted_features": data.get("unwanted_features", []),
+                "fail_patterns": data.get("fail_patterns", []),
+                "notes": data.get("notes", ""),
+                "raw_output": raw,
+                "latency_s": latency_s,
+            }
+
+    except MemoryError:
+        if len(valid_indices) == 1:
+            raise
+        # Halve the batch and recurse.
+        mid = len(valid_indices) // 2
+        first_half_pairs = [pairs[i] for i in valid_indices[:mid]]
+        second_half_pairs = [pairs[i] for i in valid_indices[mid:]]
+        new_batch_size = max(1, eff_batch // 2)
+        first_results = annotate_batch(
+            first_half_pairs, model_key=model_key, config_path=config_path,
+            _batch_size_override=new_batch_size,
+        )
+        second_results = annotate_batch(
+            second_half_pairs, model_key=model_key, config_path=config_path,
+            _batch_size_override=new_batch_size,
+        )
+        for list_pos, idx in enumerate(valid_indices[:mid]):
+            results[idx] = first_results[list_pos]
+        for list_pos, idx in enumerate(valid_indices[mid:]):
+            results[idx] = second_results[list_pos]
+
+    return results  # type: ignore[return-value]
