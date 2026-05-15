@@ -54,10 +54,14 @@ def _load_model(model_key: str, config: dict) -> tuple:
     repo = config["repo"]
     load_in_4bit = config.get("load_in_4bit", False)
 
-    from transformers import AutoProcessor, AutoModelForVision2Seq, BitsAndBytesConfig
+    from transformers import AutoProcessor, BitsAndBytesConfig
+    try:
+        from transformers import AutoModelForImageTextToText as _AutoVLM
+    except ImportError:
+        from transformers import AutoModelForVision2Seq as _AutoVLM  # type: ignore[assignment]
 
     bnb = BitsAndBytesConfig(load_in_4bit=True) if load_in_4bit else None
-    model = AutoModelForVision2Seq.from_pretrained(
+    model = _AutoVLM.from_pretrained(
         repo,
         quantization_config=bnb,
         device_map="auto",
@@ -83,9 +87,22 @@ def _build_messages(prompt: dict, backend: str, extra_user: str | None = None) -
     ]
 
 
+# ── Image resizing ────────────────────────────────────────────────────────────
+def _resize_for_vlm(img: Image.Image, max_side: int = 1024) -> Image.Image:
+    """Downscale image so the longer side <= max_side, preserving aspect ratio."""
+    w, h = img.size
+    if max(w, h) <= max_side:
+        return img
+    scale = max_side / max(w, h)
+    new_w, new_h = int(w * scale), int(h * scale)
+    return img.resize((new_w, new_h), Image.LANCZOS)
+
+
 # ── Inference ─────────────────────────────────────────────────────────────────
 def _infer(model, processor, messages: list, images: list, config: dict) -> str:
     max_new_tokens = config.get("max_new_tokens", 512)
+    max_image_side = config.get("max_image_side", 1024)
+    images = [_resize_for_vlm(img, max_image_side) for img in images]
     text = processor.apply_chat_template(
         messages, tokenize=False, add_generation_prompt=True
     )

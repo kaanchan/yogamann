@@ -41,7 +41,7 @@ def _print_comparison(run_id: int, source_name: str, results: list[dict]) -> Non
     col_w = max(16, max(len(m) for m in model_ids) + 2)
     label_w = 22
     header = f"{'':>{label_w}}" + "".join(m.center(col_w) for m in model_ids)
-    sep = "─" * len(header)
+    sep = "-" * len(header)
     print(f"\nRun {run_id}  {source_name}")
     print(sep)
     print(header)
