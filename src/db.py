@@ -88,6 +88,24 @@ CREATE TABLE IF NOT EXISTS annotations (
 CREATE INDEX IF NOT EXISTS idx_ann_run    ON annotations(run_id);
 CREATE INDEX IF NOT EXISTS idx_ann_user   ON annotations(user_id);
 CREATE INDEX IF NOT EXISTS idx_ann_rating ON annotations(rating);
+
+CREATE TABLE IF NOT EXISTS vlm_annotations (
+    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+    run_id            INTEGER NOT NULL REFERENCES runs(id),
+    model_id          TEXT    NOT NULL,
+    timestamp         TEXT    NOT NULL,
+    rating            TEXT,
+    misaligned        TEXT,
+    unwanted_features TEXT,
+    fail_patterns     TEXT,
+    notes             TEXT,
+    raw_output        TEXT,
+    latency_s         REAL,
+    UNIQUE(run_id, model_id)
+);
+
+CREATE INDEX IF NOT EXISTS idx_vlm_run   ON vlm_annotations(run_id);
+CREATE INDEX IF NOT EXISTS idx_vlm_model ON vlm_annotations(model_id);
 """
 
 # ── Connection ─────────────────────────────────────────────────────────────────
@@ -432,6 +450,73 @@ def get_stats(conn: sqlite3.Connection) -> dict:
     gold   = conn.execute("SELECT COUNT(*) FROM runs WHERE rating='Gold'").fetchone()[0]
     sources = conn.execute("SELECT COUNT(*) FROM source_images").fetchone()[0]
     return {"total": total, "rated": rated, "gold": gold, "sources": sources}
+
+# ── VLM annotation helpers ─────────────────────────────────────────────────────
+def save_vlm_annotation(
+    conn: sqlite3.Connection,
+    run_id: int,
+    model_id: str,
+    rating: str,
+    misaligned: list[str],
+    unwanted_features: list[str],
+    fail_patterns: list[str],
+    notes: str,
+    raw_output: str,
+    latency_s: float,
+) -> None:
+    now = datetime.now(timezone.utc).isoformat()
+    conn.execute("""
+        INSERT INTO vlm_annotations
+            (run_id, model_id, timestamp, rating, misaligned, unwanted_features,
+             fail_patterns, notes, raw_output, latency_s)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ON CONFLICT(run_id, model_id) DO UPDATE SET
+            timestamp=excluded.timestamp,
+            rating=excluded.rating,
+            misaligned=excluded.misaligned,
+            unwanted_features=excluded.unwanted_features,
+            fail_patterns=excluded.fail_patterns,
+            notes=excluded.notes,
+            raw_output=excluded.raw_output,
+            latency_s=excluded.latency_s
+    """, (
+        run_id, model_id, now, rating,
+        json.dumps(misaligned),
+        json.dumps(unwanted_features),
+        json.dumps(fail_patterns),
+        notes, raw_output, latency_s,
+    ))
+
+
+def get_vlm_annotations(conn: sqlite3.Connection, run_id: int) -> list[sqlite3.Row]:
+    return conn.execute(
+        "SELECT * FROM vlm_annotations WHERE run_id=? ORDER BY model_id",
+        (run_id,),
+    ).fetchall()
+
+
+def get_unanalyzed_runs(
+    conn: sqlite3.Connection,
+    model_id: str,
+    limit: int = 0,
+) -> list[sqlite3.Row]:
+    """Returns runs with no vlm_annotations entry for model_id.
+    Each row exposes: id, output_png, source_path (from source_images.path).
+    """
+    q = """
+        SELECT r.id, r.output_png, si.path as source_path
+        FROM runs r
+        JOIN source_images si ON r.source_sha256 = si.sha256
+        WHERE NOT EXISTS (
+            SELECT 1 FROM vlm_annotations va
+            WHERE va.run_id = r.id AND va.model_id = ?
+        )
+        ORDER BY r.timestamp DESC
+    """
+    if limit:
+        q += f" LIMIT {limit}"
+    return conn.execute(q, (model_id,)).fetchall()
+
 
 # ── CLI ────────────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
