@@ -61,7 +61,12 @@ def main() -> None:
     parser.add_argument("--run-ids", nargs="+", type=int, help="Specific run IDs to analyze")
     parser.add_argument("--limit", type=int, default=5, help="N most recent runs (default 5)")
     parser.add_argument("--output-root", default=r"D:\Temp\yogamann-output")
-    parser.add_argument("--models", nargs="+", help="Model keys to use (default: all in vlm.yml)")
+    parser.add_argument("--models", nargs="+",
+                        help="Model keys to use (default: all enabled in vlm.yml)")
+    parser.add_argument("--force", action="store_true",
+                        help="Re-annotate even if (run_id, model_id) already exists in DB")
+    parser.add_argument("--batch-size", type=int, default=25,
+                        help="Images per micro-batch within a model phase (default 25)")
     args = parser.parse_args()
 
     db_path = Path(args.output_root) / "yogamann.db"
