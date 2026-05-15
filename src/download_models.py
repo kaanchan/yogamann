@@ -58,6 +58,11 @@ VLM_MODELS = [
         None, None,
         "VLM pose analyzer — lightweight model (~8 GB)",
     ),
+    (
+        "allenai/Molmo-7B-D-0924",
+        None, None,
+        "VLM pose analyzer — fallback model (~15 GB)",
+    ),
 ]
 
 

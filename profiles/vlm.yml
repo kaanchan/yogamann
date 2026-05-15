@@ -19,6 +19,12 @@ models:
     load_in_4bit: true
     max_new_tokens: 512
 
+  molmo_7b_d:
+    repo: allenai/Molmo-7B-D-0924
+    backend: transformers
+    load_in_4bit: true
+    max_new_tokens: 512
+
 prompt:
   system: |
     You are a yoga pose alignment analyst. You receive two images:
