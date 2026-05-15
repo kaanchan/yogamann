@@ -1,5 +1,18 @@
 # PROGRESS
 
+## 2026-05-15 — VLM Pose Analysis implementation (#29), feature/vlm-analysis
+
+- Implemented all 7 tasks via Subagent-Driven Development skill
+- Task 1: vlm_annotations DDL + save/get/unanalyzed helpers in db.py (5d2d161, 00d4c9c)
+- Task 2: profiles/vlm.yml + bitsandbytes dep in pyproject.toml (323d369)
+- Task 3: tests/conftest.py + 6 DB tests in tests/test_db_vlm.py (e12ecfe)
+- Task 4: src/vlm_inference.py lazy-cached inference core + 13 unit tests (886d5ee)
+- Task 5: src/compare_vlm.py multi-model comparison harness (03b11f2, 94e423c)
+- Task 6: src/analyze.py polling daemon + --once batch mode (594c9bc, abfbbf6)
+- Task 7: download_models.py refactor (PIPELINE_MODELS+VLM_MODELS, --vlm-only) + make.ps1 targets (7c8721f, aef3e61)
+- All 19 tests passing; branch pushed to origin/feature/vlm-analysis
+- Issue #29 open; branch kept for user to merge/PR when ready
+
 ## 2026-05-13 — PM reconciliation, push to remote, ctx-upgrade
 
 - Confirmed #25 (README, 3c6b800) and #26 (multi-batch, d428c63) already committed from prior sessions
