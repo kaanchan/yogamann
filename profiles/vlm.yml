@@ -7,6 +7,7 @@ models:
     load_in_4bit: true
     max_new_tokens: 256        # JSON output is ~60-100 tokens; 512 wastes budget on bad retries
     max_pixels: 401408         # 512 patches × 784px/patch — ~2× faster vs default 1M-pixel cap
+    vlm_batch_size: 1          # batch=2 tested: 16GB VRAM insufficient headroom; revisit on 24GB+
 
   internvl2_5_8b:
     repo: OpenGVLab/InternVL2_5-8B-MPO

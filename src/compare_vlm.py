@@ -50,7 +50,7 @@ from db import (
     save_vlm_annotation,
 )
 from gpu_monitor import cooldown_if_hot, fmt_metrics, sample as gpu_sample
-from vlm_inference import annotate, evict_model, VLMSchemaError
+from vlm_inference import annotate, annotate_batch, evict_model, VLMSchemaError
 import batch_lock
 
 
@@ -144,12 +144,25 @@ def _run_model_phase(
     gpu_temp_limit: float,
     cooldown_secs: float,
     jsonl_fh,
+    vlm_batch_size: int = 1,
     max_images: int | None = None,
 ) -> dict:
     """Annotate up to max_images candidate runs with one model, in micro-batches.
     Returns {'ok': N, 'error': M, 'skipped': K, 'elapsed_s': T}.
     max_images=None means run all remaining (model-major behaviour).
     """
+    # Compatibility gate: non-qwen_style models don't support batching.
+    if vlm_batch_size > 1:
+        _vlm_cfg = yaml.safe_load(
+            (Path(__file__).parent.parent / "profiles" / "vlm.yml")
+            .read_text(encoding="utf-8")
+        )
+        _model_cfg = _vlm_cfg.get("models", {}).get(model_key, {})
+        if _model_cfg.get("inference_style"):
+            if not quiet:
+                print(f"  [{model_key}] inference_style={_model_cfg['inference_style']} — vlm_batch_size forced to 1")
+            vlm_batch_size = 1
+
     if force:
         todo_full = candidates
         skipped = 0
@@ -194,133 +207,147 @@ def _run_model_phase(
     first_img = True
 
     for batch_idx, batch in enumerate(chunked(todo, batch_size), start=1):
-        for run in batch:
-            # Thermal guard — check before starting inference on each image.
+        for gpu_batch in chunked(batch, vlm_batch_size):
+            # Thermal guard — check once per GPU batch.
             cooldown_if_hot(gpu_temp_limit, cooldown_secs, quiet=quiet)
 
+            pairs = [(r["source_path"], r["output_png"]) for r in gpu_batch]
             done_before = stats["ok"] + stats["error"]
             if not quiet:
-                src_name = Path(run["source_path"]).name
-                print(
-                    f"  [{_ts()}] {model_key:<14} "
-                    f"[{done_before+1:>4}/{len(todo):<4}] "
-                    f"run={run['id']:<5} {src_name}  → inferring ...",
-                    flush=True,
-                )
-
-            t_inf = time.perf_counter()
-            try:
-                result = annotate(
-                    Path(run["source_path"]),
-                    Path(run["output_png"]),
-                    model_key=model_key,
-                )
-                save_vlm_annotation(
-                    conn, run["id"], model_key,
-                    rating=result["rating"],
-                    misaligned=result["misaligned"],
-                    unwanted_features=result["unwanted_features"],
-                    fail_patterns=result["fail_patterns"],
-                    notes=result["notes"],
-                    raw_output=result["raw_output"],
-                    latency_s=result["latency_s"],
-                )
-                stats["ok"] += 1
-                elapsed_inf = time.perf_counter() - t_inf
-
-                # Sample hardware metrics immediately after inference completes.
-                hw = gpu_sample()
-
-                if jsonl_fh is not None:
-                    record = {
-                        "ts": hw["ts"],
-                        "model_id": model_key,
-                        "run_id": run["id"],
-                        "status": "ok",
-                        "rating": result.get("rating"),
-                        "latency_s": round(elapsed_inf, 3),
-                        "gpu_temp_c": hw["gpu_temp_c"],
-                        "gpu_util_pct": hw["gpu_util_pct"],
-                        "gpu_mem_used_mb": hw["gpu_mem_used_mb"],
-                        "gpu_power_w": hw["gpu_power_w"],
-                        "cpu_util_pct": hw["cpu_util_pct"],
-                    }
-                    jsonl_fh.write(json.dumps(record) + "\n")
-                    jsonl_fh.flush()
-
-                if first_img:
-                    load_plus_first = elapsed_inf
-                    first_img = False
-
-                if not quiet:
-                    done = stats["ok"] + stats["error"]
-                    phase_elapsed = time.perf_counter() - t_phase_start
-                    if done > 1:
-                        steady_avg = (phase_elapsed - load_plus_first) / (done - 1)
-                    else:
-                        steady_avg = elapsed_inf
-                    eta_remaining = steady_avg * (len(todo) - done)
-                    rating = (result.get("rating") or "?")[:10]
-                    marker = "L+1   " if done == 1 else f"avg={steady_avg:4.1f}s"
+                if len(gpu_batch) == 1:
+                    src_name = Path(gpu_batch[0]["source_path"]).name
                     print(
                         f"  [{_ts()}] {model_key:<14} "
-                        f"{done:>4}/{len(todo):<4} "
-                        f"run={run['id']:<5} "
-                        f"{elapsed_inf:5.1f}s "
-                        f"rating={rating:<10} "
-                        f"{marker} "
-                        f"ETA={_fmt_eta(eta_remaining)} "
-                        f"| {fmt_metrics(hw)}",
+                        f"[{done_before+1:>4}/{len(todo):<4}] "
+                        f"run={gpu_batch[0]['id']:<5} {src_name}  → inferring ...",
                         flush=True,
                     )
-            except (FileNotFoundError, VLMSchemaError) as exc:
-                stats["error"] += 1
-                if jsonl_fh is not None:
+                else:
+                    run_ids = [r["id"] for r in gpu_batch]
+                    print(
+                        f"  [{_ts()}] {model_key:<14} "
+                        f"[{done_before+1:>4}-{done_before+len(gpu_batch):<4}/{len(todo):<4}] "
+                        f"runs={run_ids[0]}..{run_ids[-1]}  N={len(gpu_batch)}  → inferring batch ...",
+                        flush=True,
+                    )
+
+            t_inf = time.perf_counter()
+            batch_results = annotate_batch(pairs, model_key=model_key)
+
+            for run, result in zip(gpu_batch, batch_results):
+                elapsed_inf = time.perf_counter() - t_inf  # wall time for the batch
+
+                if isinstance(result, MemoryError):
+                    stats["error"] += 1
+                    print(f"  [{_ts()}] {model_key:<14} [OOM]  run={run['id']}: {result}")
+                    if jsonl_fh is not None:
+                        hw = gpu_sample()
+                        record = {
+                            "ts": hw["ts"], "model_id": model_key, "run_id": run["id"],
+                            "status": "oom", "error": str(result),
+                            "latency_s": round(elapsed_inf, 3),
+                            "gpu_temp_c": hw["gpu_temp_c"], "gpu_util_pct": hw["gpu_util_pct"],
+                            "gpu_mem_used_mb": hw["gpu_mem_used_mb"], "gpu_power_w": hw["gpu_power_w"],
+                            "cpu_util_pct": hw["cpu_util_pct"],
+                        }
+                        jsonl_fh.write(json.dumps(record) + "\n")
+                        jsonl_fh.flush()
+
+                elif isinstance(result, (FileNotFoundError, VLMSchemaError)):
+                    stats["error"] += 1
+                    print(f"  [{_ts()}] {model_key:<14} [SKIP] run={run['id']}: {result}")
+                    if jsonl_fh is not None:
+                        hw = gpu_sample()
+                        record = {
+                            "ts": hw["ts"], "model_id": model_key, "run_id": run["id"],
+                            "status": "skip", "error": str(result),
+                            "latency_s": round(elapsed_inf, 3),
+                            "gpu_temp_c": hw["gpu_temp_c"], "gpu_util_pct": hw["gpu_util_pct"],
+                            "gpu_mem_used_mb": hw["gpu_mem_used_mb"], "gpu_power_w": hw["gpu_power_w"],
+                            "cpu_util_pct": hw["cpu_util_pct"],
+                        }
+                        jsonl_fh.write(json.dumps(record) + "\n")
+                        jsonl_fh.flush()
+
+                elif isinstance(result, Exception):
+                    stats["error"] += 1
+                    print(
+                        f"  [{_ts()}] {model_key:<14} [ERROR] run={run['id']}: "
+                        f"{type(result).__name__}: {result}"
+                    )
+                    if verbose:
+                        traceback.print_exc()
+                    if jsonl_fh is not None:
+                        hw = gpu_sample()
+                        record = {
+                            "ts": hw["ts"], "model_id": model_key, "run_id": run["id"],
+                            "status": "error", "error": f"{type(result).__name__}: {result}",
+                            "latency_s": round(elapsed_inf, 3),
+                            "gpu_temp_c": hw["gpu_temp_c"], "gpu_util_pct": hw["gpu_util_pct"],
+                            "gpu_mem_used_mb": hw["gpu_mem_used_mb"], "gpu_power_w": hw["gpu_power_w"],
+                            "cpu_util_pct": hw["cpu_util_pct"],
+                        }
+                        jsonl_fh.write(json.dumps(record) + "\n")
+                        jsonl_fh.flush()
+
+                else:
+                    # result is a dict — successful annotation
+                    save_vlm_annotation(
+                        conn, run["id"], model_key,
+                        rating=result["rating"],
+                        misaligned=result["misaligned"],
+                        unwanted_features=result["unwanted_features"],
+                        fail_patterns=result["fail_patterns"],
+                        notes=result["notes"],
+                        raw_output=result["raw_output"],
+                        latency_s=result["latency_s"],
+                    )
+                    stats["ok"] += 1
+
                     hw = gpu_sample()
-                    record = {
-                        "ts": hw["ts"],
-                        "model_id": model_key,
-                        "run_id": run["id"],
-                        "status": "skip",
-                        "error": str(exc),
-                        "latency_s": round(time.perf_counter() - t_inf, 3),
-                        "gpu_temp_c": hw["gpu_temp_c"],
-                        "gpu_util_pct": hw["gpu_util_pct"],
-                        "gpu_mem_used_mb": hw["gpu_mem_used_mb"],
-                        "gpu_power_w": hw["gpu_power_w"],
-                        "cpu_util_pct": hw["cpu_util_pct"],
-                    }
-                    jsonl_fh.write(json.dumps(record) + "\n")
-                    jsonl_fh.flush()
-                print(f"  [{_ts()}] {model_key:<14} [SKIP] run={run['id']}: {exc}")
-            except Exception as exc:
-                stats["error"] += 1
-                if jsonl_fh is not None:
-                    hw = gpu_sample()
-                    record = {
-                        "ts": hw["ts"],
-                        "model_id": model_key,
-                        "run_id": run["id"],
-                        "status": "error",
-                        "error": f"{type(exc).__name__}: {exc}",
-                        "latency_s": round(time.perf_counter() - t_inf, 3),
-                        "gpu_temp_c": hw["gpu_temp_c"],
-                        "gpu_util_pct": hw["gpu_util_pct"],
-                        "gpu_mem_used_mb": hw["gpu_mem_used_mb"],
-                        "gpu_power_w": hw["gpu_power_w"],
-                        "cpu_util_pct": hw["cpu_util_pct"],
-                    }
-                    jsonl_fh.write(json.dumps(record) + "\n")
-                    jsonl_fh.flush()
-                print(
-                    f"  [{_ts()}] {model_key:<14} [ERROR] run={run['id']}: "
-                    f"{type(exc).__name__}: {exc}"
-                )
-                if verbose:
-                    traceback.print_exc()
+                    if jsonl_fh is not None:
+                        record = {
+                            "ts": hw["ts"], "model_id": model_key, "run_id": run["id"],
+                            "status": "ok", "rating": result.get("rating"),
+                            "latency_s": round(result["latency_s"], 3),
+                            "gpu_temp_c": hw["gpu_temp_c"], "gpu_util_pct": hw["gpu_util_pct"],
+                            "gpu_mem_used_mb": hw["gpu_mem_used_mb"], "gpu_power_w": hw["gpu_power_w"],
+                            "cpu_util_pct": hw["cpu_util_pct"],
+                        }
+                        jsonl_fh.write(json.dumps(record) + "\n")
+                        jsonl_fh.flush()
+
+                    if first_img:
+                        load_plus_first = elapsed_inf
+                        first_img = False
+
+                    if not quiet:
+                        done = stats["ok"] + stats["error"]
+                        phase_elapsed = time.perf_counter() - t_phase_start
+                        if done > 1:
+                            steady_avg = (phase_elapsed - load_plus_first) / (done - 1)
+                        else:
+                            steady_avg = elapsed_inf
+                        eta_remaining = steady_avg * (len(todo) - done)
+                        rating = (result.get("rating") or "?")[:10]
+                        marker = "L+1   " if done == 1 else f"avg={steady_avg:4.1f}s"
+                        print(
+                            f"  [{_ts()}] {model_key:<14} "
+                            f"{done:>4}/{len(todo):<4} "
+                            f"run={run['id']:<5} "
+                            f"{result['latency_s']:5.1f}s "
+                            f"rating={rating:<10} "
+                            f"{marker} "
+                            f"ETA={_fmt_eta(eta_remaining)} "
+                            f"| {fmt_metrics(hw)}",
+                            flush=True,
+                        )
 
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            allocated = torch.cuda.memory_allocated()
+            reserved = torch.cuda.memory_reserved()
+            if reserved > 0 and (allocated / reserved) < 0.85:
+                torch.cuda.empty_cache()
         if not quiet:
             done = stats["ok"] + stats["error"]
             print(
@@ -364,6 +391,8 @@ def main() -> None:
                         help="Re-annotate even if (run_id, model_id) already in DB")
     parser.add_argument("--batch-size", type=int, default=25,
                         help="Images per micro-batch (default 25)")
+    parser.add_argument("--vlm-batch-size", type=int, default=None,
+                        help="GPU batch size for VLM inference (default: from vlm.yml or 1)")
     parser.add_argument("--gpu-temp-limit", type=float, default=80.0,
                         help="Pause inference if GPU temp reaches this °C (default 80)")
     parser.add_argument("--cooldown-secs", type=float, default=30.0,
@@ -478,11 +507,13 @@ def main() -> None:
             if args.strategy == "model-major":
                 for model_key in model_keys:
                     try:
+                        _vlm_model_cfg = vlm_cfg.get("models", {}).get(model_key, {})
+                        _vlm_batch = args.vlm_batch_size if args.vlm_batch_size is not None else _vlm_model_cfg.get("vlm_batch_size", 1)
                         _accumulate(model_key, _run_model_phase(
                             conn, model_key, candidates, args.batch_size,
                             args.force, args.verbose, args.quiet,
                             args.gpu_temp_limit, args.cooldown_secs,
-                            jsonl_fh,
+                            jsonl_fh, vlm_batch_size=_vlm_batch,
                         ))
                     finally:
                         evict_model(model_key)
@@ -522,11 +553,13 @@ def main() -> None:
                         print(f"  {model_key} → {slice_n} imgs  ({slice_src})", flush=True)
 
                         try:
+                            _vlm_model_cfg = vlm_cfg.get("models", {}).get(model_key, {})
+                            _vlm_batch = args.vlm_batch_size if args.vlm_batch_size is not None else _vlm_model_cfg.get("vlm_batch_size", 1)
                             stats = _run_model_phase(
                                 conn, model_key, candidates, args.batch_size,
                                 args.force, args.verbose, args.quiet,
                                 args.gpu_temp_limit, args.cooldown_secs,
-                                jsonl_fh, max_images=slice_n,
+                                jsonl_fh, vlm_batch_size=_vlm_batch, max_images=slice_n,
                             )
                             _accumulate(model_key, stats)
                             if stats["ok"] + stats["error"] > 0:
