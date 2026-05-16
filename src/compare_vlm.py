@@ -344,7 +344,10 @@ def _run_model_phase(
                         )
 
         if torch.cuda.is_available():
-            torch.cuda.empty_cache()
+            allocated = torch.cuda.memory_allocated()
+            reserved = torch.cuda.memory_reserved()
+            if reserved > 0 and (allocated / reserved) < 0.85:
+                torch.cuda.empty_cache()
         if not quiet:
             done = stats["ok"] + stats["error"]
             print(

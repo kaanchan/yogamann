@@ -382,8 +382,6 @@ def _infer(model, processor, messages: list, images: list, config: dict) -> str:
     inputs = processor(
         text=text, images=images, return_tensors="pt", max_pixels=max_px
     ).to("cuda")
-    seq_len = inputs.input_ids.shape[1]
-    print(f"  [qwen _infer] seq_len={seq_len}  max_pixels={max_px}  max_new_tokens={max_new_tokens}", flush=True)
     try:
         output_ids = model.generate(**inputs, max_new_tokens=max_new_tokens)
     except RuntimeError as exc:
