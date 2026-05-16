@@ -12,7 +12,7 @@ Closes #21
 """
 from __future__ import annotations
 
-import argparse, io, json, subprocess, sys, time
+import argparse, io, json, logging, subprocess, sys, time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -21,7 +21,7 @@ from PIL import Image
 
 # db.py lives in the same src/ directory
 sys.path.insert(0, str(Path(__file__).parent))
-from db import (open_db, get_runs, get_runs_for_source, get_thumbnail, get_stats,
+from db import (open_db, get_runs, get_runs_for_source, get_thumbnail, get_or_create_thumbnail, get_stats,
                 save_annotation, get_all_annotations, get_or_create_user, get_users,
                 get_vlm_annotations, get_vlm_comparison_page)
 import batch_lock
@@ -1055,7 +1055,7 @@ with tab2:
         for vrow in vlm_rows:
             rid = vrow["run_id"]
             if rid not in thumb_map:
-                data = get_thumbnail(conn, vrow["source_sha256"])
+                data = get_or_create_thumbnail(conn, vrow["source_sha256"])
                 if data:
                     thumb_map[rid] = _b64.b64encode(data).decode()
             if rid not in render_map and vrow.get("output_png"):
@@ -1065,8 +1065,8 @@ with tab2:
                     buf = io.BytesIO()
                     rimg.save(buf, format="JPEG", quality=70)
                     render_map[rid] = _b64.b64encode(buf.getvalue()).decode()
-                except Exception:
-                    pass
+                except Exception as e:
+                    logging.warning("render thumbnail failed run %d: %s", rid, e)
 
         # ── Pagination bar ─────────────────────────────────────────────────────
         vc1, vc2, vc3, vc4 = st.columns([1, 4, 3, 1])

@@ -14,7 +14,7 @@ CLI (ingest existing .metrics.json files):
 """
 from __future__ import annotations
 
-import argparse, hashlib, io, json, sqlite3, sys
+import argparse, hashlib, io, json, logging, sqlite3, sys
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -443,6 +443,30 @@ def get_runs_for_source(conn: sqlite3.Connection, sha256: str) -> list[sqlite3.R
 def get_thumbnail(conn: sqlite3.Connection, sha256: str) -> bytes | None:
     row = conn.execute("SELECT data FROM thumbnails WHERE sha256=?", (sha256,)).fetchone()
     return row["data"] if row else None
+
+def get_or_create_thumbnail(conn: sqlite3.Connection, sha256: str) -> bytes | None:
+    row = conn.execute("SELECT data FROM thumbnails WHERE sha256=?", (sha256,)).fetchone()
+    if row:
+        return row["data"]
+    src = conn.execute("SELECT path FROM source_images WHERE sha256=?", (sha256,)).fetchone()
+    if not src:
+        logging.warning("get_or_create_thumbnail: no source_images row for sha256=%s", sha256)
+        return None
+    try:
+        img = Image.open(src["path"]).convert("RGB")
+        img.thumbnail((150, 150))
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=80)
+        data = buf.getvalue()
+        conn.execute(
+            "INSERT OR IGNORE INTO thumbnails (sha256, data) VALUES (?, ?)",
+            (sha256, data),
+        )
+        conn.commit()
+        return data
+    except Exception as e:
+        logging.warning("get_or_create_thumbnail failed for sha256=%s: %s", sha256, e)
+        return None
 
 def get_stats(conn: sqlite3.Connection) -> dict:
     total  = conn.execute("SELECT COUNT(*) FROM runs").fetchone()[0]
