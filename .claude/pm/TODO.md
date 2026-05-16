@@ -4,8 +4,8 @@
 
 | # | Title | Priority |
 |---|-------|----------|
-| TBD | perf: batched GPU inference for Qwen2.5-VL (vlm_batch_size) — `feature/batched-inference` | HIGH (active) |
-| [#34](https://github.com/kaanchan/yogamann/issues/34) | research: GPU resource management for sustained inference runs | MEDIUM (impl pending) |
+| [#36](https://github.com/kaanchan/yogamann/issues/36) | bug: gallery no images for runs 957-981 | MEDIUM |
+| [#34](https://github.com/kaanchan/yogamann/issues/34) | research: GPU resource management — pynvml, power cap, nvitop (partially applied) | MEDIUM |
 | [#32](https://github.com/kaanchan/yogamann/issues/32) | tech-debt: pin transformers version — 5-model annotation run in progress | MEDIUM |
 | [#29](https://github.com/kaanchan/yogamann/issues/29) | Feature: VLM pose analysis — local vision-language model integration | HIGH |
 | [#33](https://github.com/kaanchan/yogamann/issues/33) | research: alternative pose analyzers and renderers beyond OpenPose + SDXL ControlNet | LOW (deferred) |

@@ -1,5 +1,16 @@
 # PROGRESS
 
+## 2026-05-15 — feature/batched-inference closed → main (a066eee)
+
+- Added `_infer_batch()` + `annotate_batch()` to `vlm_inference.py` (#35)
+- Added `--vlm-batch-size` CLI flag + two-level GPU-batch loop to `compare_vlm.py` (#35)
+- Added fragmentation guard (allocated/reserved < 0.85) replacing unconditional `empty_cache()`
+- Removed `[qwen _infer] seq_len` diagnostic print
+- Tested batch=2: 11.5s/img vs 7.5s/img single — VRAM at 96%, batching counterproductive on 16GB
+- vlm_batch_size set to 1; infrastructure ready for 24GB revisit
+- Opened #36: gallery display bug for runs 957-981 (files present, display broken)
+- Qwen full annotation run queued for overnight (~897 images remaining)
+
 ## 2026-05-15 — Session close: v4 branch merged, batched-inference branch created
 
 ### Accomplished

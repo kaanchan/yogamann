@@ -1,5 +1,9 @@
 # PENDING TASK
 
+_Cleared 2026-05-15 — feature/batched-inference merged to main (#35 closed)_
+
+---
+
 ## Active Branch
 `feature/batched-inference` — off `main` (created 2026-05-15)
 Last commit: `cf8c071` — docs: issue-34 GPU management research reports
