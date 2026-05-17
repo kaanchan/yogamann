@@ -1,5 +1,13 @@
 # PROGRESS
 
+## 2026-05-16 — Gallery fix + research close + new issues
+
+- **#36 closed**: merged `feature/gallery-missing-thumbnails` → main (f3ab374). Added `get_or_create_thumbnail()` to `db.py` with lazy disk fallback + DB backfill. Fixed silent render exception → `logging.warning`. 31/31 tests. Fix is defensive (thumbnails were already populated).
+- **#33 closed**: SYNTHESIS.md posted to GH. Research at `docs/research/issue-33-pose-pipeline-evaluation/SYNTHESIS.md`.
+- **#37 opened**: VLM prompt tightening — body-part checklist, explicit exclusions, Qwen rating-inflation fix.
+- **#38 opened**: MiniCPM-V-2.6 JSON structure non-compliance — diagnosis + fix.
+
+
 ## 2026-05-15 — feature/batched-inference closed → main (a066eee)
 
 - Added `_infer_batch()` + `annotate_batch()` to `vlm_inference.py` (#35)
