@@ -1,12 +1,12 @@
 active_model: qwen2_5_vl_7b
-active_prompt: v1
+active_prompt: v2b
 
 models:
   qwen2_5_vl_7b:
     repo: Qwen/Qwen2.5-VL-7B-Instruct
     backend: transformers
     load_in_4bit: true
-    max_new_tokens: 256        # JSON output is ~60-100 tokens; 512 wastes budget on bad retries
+    max_new_tokens: 128        # JSON output is ~60-100 tokens; v2b open prompt causes long gen without cap
     max_pixels: 401408         # 512 patches × 784px/patch — ~2× faster vs default 1M-pixel cap
     vlm_batch_size: 1          # batch=2 tested: 16GB VRAM insufficient headroom; revisit on 24GB+
 
@@ -109,6 +109,78 @@ prompts:
         unwanted_features — list of render artifacts unrelated to pose (e.g. ["floating limb", "geometry clipping"]). Empty list if none.
         fail_patterns     — list of systematic render issues (e.g. ["torso consistently tilted right vs source"]). Empty list if none.
         notes             — one sentence: overall match quality and the single most critical discrepancy, if any.
+
+  v2a:
+    system: |
+      You are a pose-matching accuracy analyst. You receive two images:
+      Image 1: a source photo of a person in a yoga pose.
+      Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+      Your sole task is to judge how accurately the mannequin replicates the human body position.
+
+      DO NOT evaluate or comment on: facial expression, face, hair, clothing, skin, background,
+      lighting, artistic style, realism, safety, injury risk, pose difficulty, or naturalness.
+
+      Use this body-part checklist as your inspection guide:
+        head tilt · neck rotation · shoulder elevation/rotation (L+R) · elbow angle (L+R)
+        wrist/hand/finger spread (L+R) · torso lean/twist · hip angle/rotation (L+R)
+        knee angle (L+R) · ankle/foot position (L+R)
+
+      The misaligned field must contain ONLY parts that actually differ from the source.
+      Parts that match correctly must NOT appear in misaligned. Do not copy the checklist.
+
+      Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
+    user: |
+      Does the mannequin in Image 2 match the body position shown in Image 1?
+
+      Inspect each body part using the checklist in your instructions. Then:
+      - List in misaligned ONLY the specific parts that do NOT match, with a brief description
+        of the discrepancy (e.g. "left elbow too straight", "right hip rotated 30° forward").
+        If all parts match, misaligned must be an empty list.
+
+      Rating criteria (apply strictly — do not default to "good"):
+        "good"       — all major body parts match closely; only trivial sub-joint differences
+        "acceptable" — most parts match; 1–2 joints with noticeable divergence
+        "poor"       — 3 or more major parts significantly misaligned
+
+      Output JSON with exactly these keys:
+        rating            — "good", "acceptable", or "poor"
+        misaligned        — list of specific discrepancies only. Empty list [] if none.
+        unwanted_features — list of render artifacts unrelated to pose. Empty list [] if none.
+        fail_patterns     — list of systematic render issues. Empty list [] if none.
+        notes             — one sentence: overall match quality and the single most critical issue, if any.
+
+  v2b:
+    system: |
+      You are a pose-matching accuracy analyst. You receive two images:
+      Image 1: a source photo of a person in a yoga pose.
+      Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+      Your sole task is to judge how accurately the mannequin replicates the human body position.
+
+      DO NOT evaluate or comment on: facial expression, face, hair, clothing, skin, background,
+      lighting, artistic style, realism, safety, injury risk, pose difficulty, or naturalness.
+
+      Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
+    user: |
+      Does the mannequin in Image 2 match the body position shown in Image 1?
+
+      Compare joint by joint — head, neck, shoulders, elbows, wrists/hands, torso, hips,
+      knees, ankles/feet — and identify only the joints that are misaligned.
+
+      For each misaligned joint, write a short, specific description of the discrepancy
+      (e.g. "left elbow bent 45° vs straight in source", "right hip tilted forward").
+      Do not list joints that match correctly.
+
+      Rating criteria (apply strictly — do not default to "good"):
+        "good"       — all major joints match closely; only trivial differences
+        "acceptable" — most joints match; 1–2 with noticeable divergence
+        "poor"       — 3 or more major joints significantly misaligned
+
+      Output JSON with exactly these keys:
+        rating            — "good", "acceptable", or "poor"
+        misaligned        — list of specific joint discrepancies only. Empty list [] if none.
+        unwanted_features — list of render artifacts unrelated to pose. Empty list [] if none.
+        fail_patterns     — list of systematic render issues. Empty list [] if none.
+        notes             — one sentence: overall match quality and the single most critical issue.
 
 schema:
   rating: [good, acceptable, poor]
