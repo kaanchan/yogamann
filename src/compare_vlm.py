@@ -146,6 +146,7 @@ def _run_model_phase(
     jsonl_fh,
     vlm_batch_size: int = 1,
     max_images: int | None = None,
+    prompt_key: str | None = None,
 ) -> dict:
     """Annotate up to max_images candidate runs with one model, in micro-batches.
     Returns {'ok': N, 'error': M, 'skipped': K, 'elapsed_s': T}.
@@ -219,7 +220,7 @@ def _run_model_phase(
                     print(
                         f"  [{_ts()}] {model_key:<14} "
                         f"[{done_before+1:>4}/{len(todo):<4}] "
-                        f"run={gpu_batch[0]['id']:<5} {src_name}  → inferring ...",
+                        f"run={gpu_batch[0]['id']:<5} {src_name}  -> inferring ...",
                         flush=True,
                     )
                 else:
@@ -227,12 +228,12 @@ def _run_model_phase(
                     print(
                         f"  [{_ts()}] {model_key:<14} "
                         f"[{done_before+1:>4}-{done_before+len(gpu_batch):<4}/{len(todo):<4}] "
-                        f"runs={run_ids[0]}..{run_ids[-1]}  N={len(gpu_batch)}  → inferring batch ...",
+                        f"runs={run_ids[0]}..{run_ids[-1]}  N={len(gpu_batch)}  -> inferring batch ...",
                         flush=True,
                     )
 
             t_inf = time.perf_counter()
-            batch_results = annotate_batch(pairs, model_key=model_key)
+            batch_results = annotate_batch(pairs, model_key=model_key, prompt_key=prompt_key)
 
             for run, result in zip(gpu_batch, batch_results):
                 elapsed_inf = time.perf_counter() - t_inf  # wall time for the batch
@@ -387,6 +388,9 @@ def main() -> None:
     parser.add_argument("--output-root", default=r"D:\Temp\yogamann-output")
     parser.add_argument("--models", nargs="+",
                         help="Model keys (default: all enabled in vlm.yml)")
+    parser.add_argument("--prompt-key",
+                        help="Named prompt variant to use from vlm.yml prompts section "
+                             "(default: active_prompt from vlm.yml)")
     parser.add_argument("--force", action="store_true",
                         help="Re-annotate even if (run_id, model_id) already in DB")
     parser.add_argument("--batch-size", type=int, default=25,
@@ -477,6 +481,8 @@ def main() -> None:
     print(f"Metrics log    : {metrics_log_path}")
     print(f"GPU temp limit : {args.gpu_temp_limit}°C  cooldown={args.cooldown_secs}s")
     print(f"Strategy       : {args.strategy}")
+    if args.prompt_key:
+        print(f"Prompt key     : {args.prompt_key}")
     if args.strategy == "round-robin":
         if args.slice is not None:
             print(f"Slice mode     : fixed {args.slice} imgs/model/round")
@@ -514,6 +520,7 @@ def main() -> None:
                             args.force, args.verbose, args.quiet,
                             args.gpu_temp_limit, args.cooldown_secs,
                             jsonl_fh, vlm_batch_size=_vlm_batch,
+                            prompt_key=args.prompt_key,
                         ))
                     finally:
                         evict_model(model_key)
@@ -550,7 +557,7 @@ def main() -> None:
                             slice_src = "fixed override"
                         else:
                             slice_src = f"fallback {args.slice_pct:.0f}% (no history)"
-                        print(f"  {model_key} → {slice_n} imgs  ({slice_src})", flush=True)
+                        print(f"  {model_key} -> {slice_n} imgs  ({slice_src})", flush=True)
 
                         try:
                             _vlm_model_cfg = vlm_cfg.get("models", {}).get(model_key, {})
@@ -560,6 +567,7 @@ def main() -> None:
                                 args.force, args.verbose, args.quiet,
                                 args.gpu_temp_limit, args.cooldown_secs,
                                 jsonl_fh, vlm_batch_size=_vlm_batch, max_images=slice_n,
+                                prompt_key=args.prompt_key,
                             )
                             _accumulate(model_key, stats)
                             if stats["ok"] + stats["error"] > 0:

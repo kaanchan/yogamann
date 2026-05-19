@@ -67,7 +67,7 @@ class VLMSchemaError(Exception):
 
 
 # ── Config ────────────────────────────────────────────────────────────────────
-def _load_config(model_key: str | None = None, config_path: Path | None = None) -> dict:
+def _load_config(model_key: str | None = None, config_path: Path | None = None, prompt_key: str | None = None) -> dict:
     if config_path is None:
         config_path = Path(__file__).parent.parent / "profiles" / "vlm.yml"
     with open(config_path, encoding="utf-8") as f:
@@ -75,7 +75,11 @@ def _load_config(model_key: str | None = None, config_path: Path | None = None) 
     key = model_key or cfg["active_model"]
     result = dict(cfg["models"][key])
     result["model_key"] = key
-    result["prompt"] = cfg["prompt"]
+    if "prompts" in cfg:
+        active_key = prompt_key if prompt_key is not None else cfg["active_prompt"]
+        result["prompt"] = cfg["prompts"][active_key]
+    else:
+        result["prompt"] = cfg["prompt"]
     return result
 
 
@@ -183,7 +187,10 @@ def evict_all() -> None:
 # ── Prompt ───────────────────────────────────────────────────────────────────
 def _build_messages(prompt: dict, backend: str, extra_user: str | None = None) -> list:
     user_text = extra_user if extra_user else prompt["user"]
-    return [
+    messages = []
+    if prompt.get("system"):
+        messages.append({"role": "system", "content": prompt["system"]})
+    messages.append(
         {
             "role": "user",
             "content": [
@@ -192,7 +199,8 @@ def _build_messages(prompt: dict, backend: str, extra_user: str | None = None) -
                 {"type": "text", "text": user_text},
             ],
         }
-    ]
+    )
+    return messages
 
 
 # ── Image resizing ────────────────────────────────────────────────────────────
@@ -265,12 +273,15 @@ def _infer_internvl(model, repo: str, messages: list, images: list, config: dict
     pixel_values = torch.cat(pixel_values_list, dim=0)
     num_patches_list = [1] * len(images)
 
-    user_msg = messages[-1]
+    system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
+    user_msg = next((m for m in messages if m["role"] == "user"), messages[-1])
     user_text = _extract_user_text(user_msg)
     question = (
         "\n".join(f"Image-{i+1}: <image>" for i in range(len(images)))
         + "\n" + user_text
     )
+    if system_text:
+        question = system_text + "\n\n" + question
 
     generation_config = dict(max_new_tokens=max_new_tokens, do_sample=False)
     return model.chat(
@@ -297,8 +308,11 @@ def _infer_molmo(model, repo: str, messages: list, images: list, config: dict) -
     max_image_side = config.get("max_image_side", 1024)
     images = [_resize_for_vlm(img, max_image_side) for img in images]
 
-    user_msg = messages[-1]
+    system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
+    user_msg = next((m for m in messages if m["role"] == "user"), messages[-1])
     user_text = _extract_user_text(user_msg)
+    if system_text:
+        user_text = system_text + "\n\n" + user_text
 
     inputs = processor.process(images=images, text=user_text)
     inputs = {k: v.to(model.device).unsqueeze(0) for k, v in inputs.items()}
@@ -354,14 +368,15 @@ def _infer_minicpm_v(model, repo: str, messages: list, images: list, config: dic
     tokenizer = _get_tokenizer(repo, revision=config.get("revision"), offline=offline)
     max_new_tokens = config.get("max_new_tokens", 512)
 
-    user_msg = messages[-1]
+    system_text = next((m["content"] for m in messages if m["role"] == "system"), None)
+    user_msg = next((m for m in messages if m["role"] == "user"), messages[-1])
     user_text = _extract_user_text(user_msg)
 
     msgs = [{"role": "user", "content": [*images, user_text]}]
-    return model.chat(
-        image=None, msgs=msgs, tokenizer=tokenizer,
-        max_new_tokens=max_new_tokens,
-    )
+    kwargs = dict(image=None, msgs=msgs, tokenizer=tokenizer, max_new_tokens=max_new_tokens)
+    if system_text is not None:
+        kwargs["system_prompt"] = system_text
+    return model.chat(**kwargs)
 
 
 # ── Inference (Qwen-style — processor.apply_chat_template + model.generate) ──
@@ -468,6 +483,7 @@ def annotate(
     render_path: Path,
     model_key: str | None = None,
     config_path: Path | None = None,
+    prompt_key: str | None = None,
 ) -> dict:
     photo_path = Path(photo_path)
     render_path = Path(render_path)
@@ -476,7 +492,7 @@ def annotate(
     if not render_path.exists():
         raise FileNotFoundError(f"Render not found: {render_path}")
 
-    config = _load_config(model_key, config_path)
+    config = _load_config(model_key, config_path, prompt_key)
     key = config["model_key"]
     backend = config.get("backend", "transformers")
 
@@ -531,6 +547,7 @@ def annotate_batch(
     model_key: str | None = None,
     config_path: Path | None = None,
     _batch_size_override: int | None = None,
+    prompt_key: str | None = None,
 ) -> list[dict | Exception]:
     """Annotate multiple (photo_path, render_path) pairs in a single batched GPU call.
 
@@ -561,7 +578,7 @@ def annotate_batch(
         return results  # type: ignore[return-value]
 
     # Load config and model once for all valid pairs.
-    config = _load_config(model_key, config_path)
+    config = _load_config(model_key, config_path, prompt_key)
     key = config["model_key"]
     model, processor = _load_model(key, config)
 
@@ -572,7 +589,7 @@ def annotate_batch(
             if isinstance(results[i], Exception):
                 continue
             try:
-                results[i] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path)
+                results[i] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path, prompt_key=prompt_key)
             except Exception as exc:
                 results[i] = exc
         return results  # type: ignore[return-value]
@@ -584,7 +601,7 @@ def annotate_batch(
         for idx in valid_indices:
             photo_path, render_path = pairs[idx]
             try:
-                results[idx] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path)
+                results[idx] = annotate(photo_path, render_path, model_key=model_key, config_path=config_path, prompt_key=prompt_key)
             except Exception as exc:
                 results[idx] = exc
         return results  # type: ignore[return-value]

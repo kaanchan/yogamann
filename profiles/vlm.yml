@@ -1,4 +1,5 @@
 active_model: qwen2_5_vl_7b
+active_prompt: v1
 
 models:
   qwen2_5_vl_7b:
@@ -46,25 +47,68 @@ models:
     max_new_tokens: 512
     # revision: <commit-hash>
 
-prompt:
-  system: |
-    You are a pose-matching accuracy analyst. You receive two images:
-    Image 1: a source photo of a person in a yoga pose.
-    Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
-    Your sole task is to judge how accurately the mannequin replicates the human body position.
-    Do NOT evaluate pose quality, difficulty, naturalness, or relaxation of the human.
-    Do NOT comment on clothing, skin, background, or artistic style.
-    Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
-  user: |
-    Does the mannequin in Image 2 match the body position shown in Image 1?
-    Focus exclusively on joint angles, limb positions, and weight distribution.
+prompts:
+  v1:
+    system: |
+      You are a pose-matching accuracy analyst. You receive two images:
+      Image 1: a source photo of a person in a yoga pose.
+      Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+      Your sole task is to judge how accurately the mannequin replicates the human body position.
+      Do NOT evaluate pose quality, difficulty, naturalness, or relaxation of the human.
+      Do NOT comment on clothing, skin, background, or artistic style.
+      Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
+    user: |
+      Does the mannequin in Image 2 match the body position shown in Image 1?
+      Focus exclusively on joint angles, limb positions, and weight distribution.
 
-    Output JSON with exactly these keys:
-      rating            — "good" (pose closely replicated), "acceptable" (minor joint divergence), or "poor" (significant mismatch)
-      misaligned        — list of specific body-part discrepancies (e.g. ["left elbow too straight", "right hip rotated forward"]). Empty list if none.
-      unwanted_features — list of render artifacts unrelated to pose (e.g. ["floating limb", "geometry clipping"]). Empty list if none.
-      fail_patterns     — list of systematic render issues (e.g. ["torso consistently tilted right vs source"]). Empty list if none.
-      notes             — one sentence: overall match quality and the single most critical discrepancy, if any.
+      Output JSON with exactly these keys:
+        rating            — "good" (pose closely replicated), "acceptable" (minor joint divergence), or "poor" (significant mismatch)
+        misaligned        — list of specific body-part discrepancies (e.g. ["left elbow too straight", "right hip rotated forward"]). Empty list if none.
+        unwanted_features — list of render artifacts unrelated to pose (e.g. ["floating limb", "geometry clipping"]). Empty list if none.
+        fail_patterns     — list of systematic render issues (e.g. ["torso consistently tilted right vs source"]). Empty list if none.
+        notes             — one sentence: overall match quality and the single most critical discrepancy, if any.
+
+  v2_checklist:
+    system: |
+      You are a pose-matching accuracy analyst. You receive two images:
+      Image 1: a source photo of a person in a yoga pose.
+      Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+      Your sole task is to judge how accurately the mannequin replicates the human body position.
+
+      DO NOT evaluate or comment on: facial expression, face, hair, clothing, skin, background,
+      lighting, artistic style, realism, safety, injury risk, pose difficulty, or naturalness.
+
+      BEFORE assigning a rating, verify EACH of the following body parts in order:
+        1. Head tilt (forward/back/side)
+        2. Neck rotation
+        3. Shoulder elevation and rotation (left and right)
+        4. Elbow angle (left and right)
+        5. Wrist and hand position, finger spread (left and right)
+        6. Torso lean and twist
+        7. Hip angle and rotation (left and right)
+        8. Knee angle (left and right)
+        9. Ankle and foot position (left and right)
+
+      Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
+    user: |
+      Does the mannequin in Image 2 match the body position shown in Image 1?
+
+      For each body part below, verify the match before assigning an overall rating:
+        head tilt, neck rotation, shoulder elevation + rotation, elbow angle,
+        wrist/hand/finger spread, torso lean/twist, hip angle + rotation,
+        knee angle, ankle/foot position.
+
+      Rating criteria (apply strictly — do not default to "good"):
+        "good"       — ALL major body parts match closely; only minor sub-joint differences allowed
+        "acceptable" — most major parts match; up to 2 joints with noticeable divergence
+        "poor"       — 3 or more major parts significantly misaligned
+
+      Output JSON with exactly these keys:
+        rating            — "good", "acceptable", or "poor"
+        misaligned        — list of specific body-part discrepancies (e.g. ["left elbow too straight", "right hip rotated forward"]). Empty list if none.
+        unwanted_features — list of render artifacts unrelated to pose (e.g. ["floating limb", "geometry clipping"]). Empty list if none.
+        fail_patterns     — list of systematic render issues (e.g. ["torso consistently tilted right vs source"]). Empty list if none.
+        notes             — one sentence: overall match quality and the single most critical discrepancy, if any.
 
 schema:
   rating: [good, acceptable, poor]
