@@ -1,5 +1,38 @@
 # PROGRESS
 
+## 2026-05-18 — VLM system prompt fix + named prompt variants (#37, #38)
+
+### Completed
+- Diagnosed #38 root cause: _build_messages() silently dropped prompt["system"] for all models; _infer_minicpm_v() never passed system_prompt= kwarg
+- Fixed all VLM backends: system prepended in messages list (Qwen), system_prompt= kwarg (MiniCPM-V), prepended to question string (InternVL), prepended to user_text (Molmo)
+- Added named prompt variants to profiles/vlm.yml: v1 (baseline), v2_checklist, v2a, v2b
+- Added active_prompt: field + prompts: dict; _load_config() supports prompt_key= override
+- Threaded prompt_key through annotate(), annotate_batch(), compare_vlm.py --prompt-key
+- Wrote 11 new TDD tests (42 total); all green on merged main
+- Live-tested v2_checklist vs v2b on 4 disagreement pairs; v2b won (selective, specific descriptions)
+- Promoted v2b to active_prompt; capped qwen2_5_vl_7b max_new_tokens: 128 for VRAM budget
+- Fixed Windows cp1252 encoding error (-> replaced arrow chars in compare_vlm.py)
+- Merged feature/vlm-prompt-system-fix-37-38 -> main (fast-forward, 42/42 tests)
+- Commits: 7613242, 5737f07
+
+### Issues
+- #38 closed -- MiniCPM-V JSON compliance resolved
+- #37 closed -- prompt tightening + named variants + v2b active
+
+### Known open
+- Large batch validation (50 runs -> 981 runs) not yet done -- #37 stretch goal, deferred
+
+## 2026-05-18 — Graphify setup and full corpus rebuild
+
+- Installed graphify extras on Python 3.12 uv tool: pdf, leiden, office, google, ollama, svg, sql
+- Switched graphify from Python 3.13 to 3.12 to unblock graspologic/Leiden (project stays on 3.13 for PyTorch cu130)
+- Created .graphifyignore — corpus reduced from 118 files/970K words to 72 files/156K words
+- Installed git post-commit + post-checkout hooks for auto AST rebuild on every commit
+- Updated graphify Claude Code skill from 0.8.10 to 0.8.13
+- Full corpus rebuild: 370 nodes, 536 edges, 36 Leiden communities (all labelled)
+- Generated graph.html, GRAPH_TREE.html, yogamann-callflow.html (Mermaid callflow)
+
+
 ## 2026-05-16 — Gallery fix + research close + new issues
 
 - **#36 closed**: merged `feature/gallery-missing-thumbnails` → main (f3ab374). Added `get_or_create_thumbnail()` to `db.py` with lazy disk fallback + DB backfill. Fixed silent render exception → `logging.warning`. 31/31 tests. Fix is defensive (thumbnails were already populated).

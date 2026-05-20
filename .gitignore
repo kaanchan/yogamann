@@ -24,3 +24,12 @@ output/
 .DS_Store
 Thumbs.db
 .superpowers/
+
+# Graphify build artifacts and pipeline temp files (generated, not source)
+graphify-out/mdbook-out/
+graphify-out/mkdocs-out/
+graphify-out/cache/
+graphify-out/.graphify_*
+
+# Local SQLite database
+yogamann.db

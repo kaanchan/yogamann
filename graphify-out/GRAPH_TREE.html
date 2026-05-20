@@ -1,0 +1,363 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>yogamann — graphify tree viewer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      background: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      margin: 20px 0 0 24px;
+      font-size: 2.2rem;
+      font-weight: bold;
+      color: #1e3a56;
+    }
+    .controls {
+      margin: 20px 0 15px 24px;
+    }
+    button {
+      margin-right: 10px;
+      padding: 8px 18px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      border-radius: 5px;
+      font-size: 0.95rem;
+      cursor: pointer;
+      transition: background 0.2s ease-in-out;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    button:hover {
+      background: #0056b3;
+    }
+    button:active {
+      background: #004085;
+    }
+    #tree-container {
+      width: calc(100vw - 48px); /* Adjust for body margin/padding */
+      height: 85vh;
+      overflow: auto;
+      border-radius: 8px;
+      background: #fff;
+      margin-left: 24px;
+      margin-right: 24px;
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+      border: 1px solid #ddd;
+    }
+    svg {
+      background: #fff;
+      border-radius: 8px;
+      display: block; /* Important for D3 */
+    }
+    .node circle {
+      stroke-width: 2.5px;
+    }
+    .node text { /* Base style for the <text> container */
+      font: 13px 'Segoe UI', sans-serif;
+      paint-order: stroke fill; /* Ensures text is readable over lines */
+      stroke: #fff; /* White halo */
+      stroke-width: 3px; /* Halo thickness */
+      stroke-linejoin: round;
+      stroke-opacity: 0.85; /* Halo opacity */
+    }
+    .link {
+      fill: none;
+      stroke-opacity: 0.7;
+      stroke-width: 2px;
+    }
+  </style>
+</head>
+<body>
+  <h1>yogamann — Knowledge Graph</h1>
+  <div class="controls">
+    <button onclick="expandAll()">Expand All</button>
+    <button onclick="collapseAll()">Collapse All</button>
+    <button onclick="resetView()">Reset View</button>
+  </div>
+  <div id="tree-container">
+    <svg id="tree-svg" width="6000" height="8000"></svg>
+  </div>
+
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script>
+    const initialJsonData = {"name":"yogamann","total_count":342,"children":[{"name":".claude","total_count":9,"children":[{"name":"pm","total_count":5,"children":[{"name":"PENDING-TASK.md","total_count":2,"children":[{"name":"Issue #37: VLM Prompt Tightening","total_count":1,"children":[]},{"name":"Issue #38: MiniCPM-V JSON Structure Non-Compliance","total_count":1,"children":[]}]},{"name":"TODO.md","total_count":3,"children":[{"name":"Issue #29: VLM Pose Analysis Feature","total_count":1,"children":[]},{"name":"Issue #32: Pin Transformers Version","total_count":1,"children":[]},{"name":"Issue #33: Alternative Pose Analyzers and Renderers","total_count":1,"children":[]}]}]},{"name":"settings.json","total_count":2,"children":[{"name":"hooks","total_count":1,"children":[]},{"name":"PreToolUse","total_count":1,"children":[]}]},{"name":"settings.local.json","total_count":2,"children":[{"name":"allow","total_count":1,"children":[]},{"name":"permissions","total_count":1,"children":[]}]}]},{"name":"docs","total_count":62,"children":[{"name":"architecture-decisions.md","total_count":10,"children":[{"name":"ADR-001: Pin ML Libraries Like Production DB Drivers","total_count":1,"children":[]},{"name":"ADR-002: Per-Model Inference Dispatchers Pattern","total_count":1,"children":[]},{"name":"ADR-003: Final Empirical Pin transformers==4.49.0","total_count":1,"children":[]},{"name":"ADR-004: Model-Major Batch Orchestration with DB-Driven Resumability","total_count":1,"children":[]},{"name":"InternVL2.5-8B-MPO","total_count":1,"children":[]},{"name":"MiniCPM-o-2.6","total_count":1,"children":[]},{"name":"MiniCPM-V-2.6","total_count":1,"children":[]},{"name":"Molmo-7B-D-0924","total_count":1,"children":[]},{"name":"profiles/vlm.yml VLM Profile","total_count":1,"children":[]},{"name":"Qwen2.5-VL-7B-Instruct","total_count":1,"children":[]}]},{"name":"ideal-targets","total_count":3,"children":[{"name":"README.md","total_count":1,"children":[{"name":"docs/ideal-targets Visual Target References","total_count":1,"children":[]}]},{"name":"standard-wooden-mannequin-02.jpg","total_count":1,"children":[{"name":"Reference Image — Standard Wooden Mannequin (Photo, Seated Pose, Dark Background)","total_count":1,"children":[]}]},{"name":"wooden-mannequin-cell-drawing-01.jpg","total_count":1,"children":[{"name":"Reference Image — Wooden Mannequin Cell Drawing (Ink Sketch, Multiple Poses)","total_count":1,"children":[]}]}]},{"name":"observations","total_count":4,"children":[{"name":"observations.json","total_count":2,"children":[{"name":"observations","total_count":1,"children":[]},{"name":"observations.json Machine-Readable Observations","total_count":1,"children":[]}]},{"name":"pipeline-observations.md","total_count":2,"children":[{"name":"OBS-001: Outdoor Complex Backgrounds Produce Artifacts","total_count":1,"children":[]},{"name":"OBS-002: Prone Back-Bends Not Captured Correctly","total_count":1,"children":[]}]}]},{"name":"research","total_count":29,"children":[{"name":"issue-29-vlm-pose-analysis","total_count":2,"children":[{"name":"FINAL-synthesis.md","total_count":2,"children":[{"name":"VLM Annotation JSON Schema","total_count":1,"children":[]},{"name":"VLM Pose Analysis Final Synthesis Report","total_count":1,"children":[]}]}]},{"name":"issue-32-transformers-version-pinning","total_count":2,"children":[{"name":"SYNTHESIS.md","total_count":2,"children":[{"name":"Transformers Version Pinning Engineering Synthesis","total_count":1,"children":[]},{"name":"transformers==4.49.0 Empirical Pin Decision","total_count":1,"children":[]}]}]},{"name":"issue-33-pose-pipeline-evaluation","total_count":15,"children":[{"name":"chatgpt-deep-research-response.md","total_count":5,"children":[{"name":"FLUX.1-dev ControlNet Renderer","total_count":1,"children":[]},{"name":"Issue #33 ChatGPT Pose Pipeline Evaluation","total_count":1,"children":[]},{"name":"RTMPose (OpenMMLab)","total_count":1,"children":[]},{"name":"Sapiens (Meta) Pose Analyzer","total_count":1,"children":[]},{"name":"SMPL-X + Blender Parametric Renderer","total_count":1,"children":[]}]},{"name":"PROMPT.md","total_count":1,"children":[{"name":"Issue #33 Deep Research Prompt — Pose Pipeline Evaluation","total_count":1,"children":[]}]},{"name":"README.md","total_count":1,"children":[{"name":"Issue #33 Research README","total_count":1,"children":[]}]},{"name":"SYNTHESIS.md","total_count":8,"children":[{"name":"DWPose — Recommended Pose Analyzer (133-keypoint whole-body)","total_count":1,"children":[]},{"name":"FLUX.1-dev + ControlNet Union — Best Diffusion Renderer","total_count":1,"children":[]},{"name":"HSMR + Headless Blender — Recommended Parametric Renderer","total_count":1,"children":[]},{"name":"Issue #33 SYNTHESIS — Yoga Pose Alignment Pipeline Consolidated Engineering Summary","total_count":1,"children":[]},{"name":"OpenPose — Current Baseline Pose Analyzer (2D Skeleton)","total_count":1,"children":[]},{"name":"RTMPose — Real-Time Pose Estimator (Exercise Tracking Accuracy)","total_count":1,"children":[]},{"name":"Sapiens — Meta Foundation Pose Model (High Accuracy, NC License)","total_count":1,"children":[]},{"name":"SDXL + ControlNet OpenPose — Current Baseline Renderer","total_count":1,"children":[]}]}]},{"name":"issue-34-gpu-management","total_count":10,"children":[{"name":"chatgpt-gpu-stability-deep-research-report.md","total_count":1,"children":[{"name":"Issue #34 ChatGPT Deep Research Report — GPU Stability","total_count":1,"children":[]}]},{"name":"gemini-GPU-Stability-for-Long-Inference-deep-research-report.md","total_count":1,"children":[{"name":"Issue #34 Gemini Deep Research Report — GPU Stability Long Inference","total_count":1,"children":[]}]},{"name":"PROMPT.md","total_count":1,"children":[{"name":"Issue #34 Deep Research Prompt — GPU Management for 12-14h VLM Runs","total_count":1,"children":[]}]},{"name":"SYNTHESIS.md","total_count":7,"children":[{"name":"80% TGP Power Cap — Community Sweet Spot for Long Inference Runs","total_count":1,"children":[]},{"name":"Issue #34 SYNTHESIS — GPU Resource Management Consolidated Findings","total_count":1,"children":[]},{"name":"nvitop — Multi-threaded GPU Profiling Engine (NVML-based)","total_count":1,"children":[]},{"name":"PM2 Process Supervisor — Daemon Watchdog with Exponential Backoff Restart","total_count":1,"children":[]},{"name":"pynvml (nvidia-ml-py) — NVML Python Wrapper for GPU Telemetry and Power Control","total_count":1,"children":[]},{"name":"PyTorch CUDA Memory API (empty_cache, memory_reserved, memory_allocated)","total_count":1,"children":[]},{"name":"WDDM Mode VRAM Constraints — Consumer GPU Memory Sharing on Windows","total_count":1,"children":[]}]}]}]},{"name":"superpowers","total_count":16,"children":[{"name":"plans","total_count":5,"children":[{"name":"2026-05-11-fast-model-download.md","total_count":1,"children":[{"name":"Plan — Fast Model Download (hf_transfer)","total_count":1,"children":[]}]},{"name":"2026-05-13-vlm-pose-analysis.md","total_count":1,"children":[{"name":"Plan — VLM Pose Analysis Implementation","total_count":1,"children":[]}]},{"name":"2026-05-15-gallery-missing-thumbnails.md","total_count":1,"children":[{"name":"Plan — Gallery Missing Thumbnails Fix","total_count":1,"children":[]}]},{"name":"2026-05-15-vlm-batch-orchestration.md","total_count":2,"children":[{"name":"Model-Major Batch Loop — Load One Model, Annotate All Images, Evict","total_count":1,"children":[]},{"name":"Plan — VLM Batch Orchestration (Model-Major Loop)","total_count":1,"children":[]}]}]},{"name":"specs","total_count":11,"children":[{"name":"2026-05-11-fast-model-download-design.md","total_count":2,"children":[{"name":"hf_transfer — Rust-based Fast HuggingFace Model Download Wheel","total_count":1,"children":[]},{"name":"Spec — Fast Model Download Design","total_count":1,"children":[]}]},{"name":"2026-05-12-vlm-pose-analysis-design.md","total_count":3,"children":[{"name":"BitsAndBytes 4-bit Quantization — VRAM Reduction for VLM Loading","total_count":1,"children":[]},{"name":"Spec — VLM Pose Analysis Design","total_count":1,"children":[]},{"name":"vlm_annotations DB Table — (run_id, model_id, prompt_tag) Unique Rows","total_count":1,"children":[]}]},{"name":"2026-05-15-gallery-missing-thumbnails-design.md","total_count":2,"children":[{"name":"get_or_create_thumbnail — Lazy Disk Fallback for Missing DB Thumbnails","total_count":1,"children":[]},{"name":"Spec — Gallery Missing Thumbnails Design","total_count":1,"children":[]}]},{"name":"2026-05-16-vlm-profile-system-design.md","total_count":4,"children":[{"name":"prompt_tag — Named Prompt Variant Key for vlm_annotations","total_count":1,"children":[]},{"name":"Spec — VLM Profile System Design (Prompt Variants, Named Profiles, Gallery Filters)","total_count":1,"children":[]},{"name":"VLM Profile Files — Named Experiment Configs (profiles/vlm/<name>.yml)","total_count":1,"children":[]},{"name":"VLM Prompt v2 — Tighter Body-Part Checklist Prompt with Explicit Exclusions","total_count":1,"children":[]}]}]}]}]},{"name":"make.ps1","total_count":1,"children":[{"name":"Invoke-Step()","total_count":1,"children":[]}]},{"name":"profiles","total_count":15,"children":[{"name":"vlm.yml","total_count":7,"children":[{"name":"InternVL2.5-8B-MPO — Secondary VLM Pose Analyzer Model","total_count":1,"children":[]},{"name":"MiniCPM-o-2.6 — Omni-Modal VLM (Qwen2 Backbone BNB Patch Required)","total_count":1,"children":[]},{"name":"MiniCPM-V-2.6 — Lightweight VLM Pose Analyzer","total_count":1,"children":[]},{"name":"Molmo-7B-D — Fallback VLM (Partial Multi-Image Support)","total_count":1,"children":[]},{"name":"Profile Config — vlm.yml (Active Model Registry + Prompt)","total_count":1,"children":[]},{"name":"Qwen2.5-VL-7B-Instruct — Primary VLM Pose Analyzer Model","total_count":1,"children":[]},{"name":"VLM Prompt v1 — Original Pose Matching JSON Output Prompt","total_count":1,"children":[]}]},{"name":"yoga_asana.yml","total_count":1,"children":[{"name":"Profile — yoga_asana (SDXL Render Parameters)","total_count":1,"children":[]}]},{"name":"yoga_asana_batch_1.yml","total_count":1,"children":[{"name":"Profile — yoga_asana_batch_1 (Random Sweep SDXL)","total_count":1,"children":[]}]},{"name":"yoga_asana_batch_2.yml","total_count":1,"children":[{"name":"Profile — yoga_asana_batch_2 (Linear Sweep SDXL)","total_count":1,"children":[]}]},{"name":"yoga_asana_cs_sweep.yml","total_count":2,"children":[{"name":"cond_scale Sweep — ControlNet Conditioning Strength Optimization (1.0-2.0)","total_count":1,"children":[]},{"name":"Profile — yoga_asana_cs_sweep (cond_scale Sweep)","total_count":1,"children":[]}]},{"name":"yoga_asana_strong.yml","total_count":1,"children":[{"name":"Profile — yoga_asana_strong (High cond_scale 2.0)","total_count":1,"children":[]}]},{"name":"yoga_asana_v1_archival.yml","total_count":2,"children":[{"name":"MediaPipe Pose — v1 Baseline Pose Detector (33 Landmarks, Superseded)","total_count":1,"children":[]},{"name":"Profile — yoga_asana_v1_archival (SD 1.5 + MediaPipe Baseline)","total_count":1,"children":[]}]}]},{"name":"README.md","total_count":13,"children":[{"name":"DWPose Skeleton Detection","total_count":1,"children":[]},{"name":"make.ps1 Entry Point","total_count":1,"children":[]},{"name":"scripts/batch.ps1 Batch Runner","total_count":1,"children":[]},{"name":"scripts/multi-batch.ps1 Overnight Queue","total_count":1,"children":[]},{"name":"src/db.py Database Management","total_count":1,"children":[]},{"name":"src/gallery.py Streamlit Gallery","total_count":1,"children":[]},{"name":"src/make_mannequin.py","total_count":1,"children":[]},{"name":"src/sd_make.py","total_count":1,"children":[]},{"name":"Stable Diffusion XL (SDXL)","total_count":1,"children":[]},{"name":"xinsir/controlnet-openpose-sdxl-1.0","total_count":1,"children":[]},{"name":"YAML Pipeline Profiles","total_count":1,"children":[]},{"name":"yogamann Pipeline","total_count":1,"children":[]},{"name":"yogamann.db SQLite Review Database","total_count":1,"children":[]}]},{"name":"requirements.txt","total_count":5,"children":[{"name":"controlnet_aux>=0.0.8","total_count":1,"children":[]},{"name":"diffusers>=0.29.0","total_count":1,"children":[]},{"name":"onnxruntime-gpu","total_count":1,"children":[]},{"name":"PyTorch (torch>=2.6.0)","total_count":1,"children":[]},{"name":"transformers==4.49.0","total_count":1,"children":[]}]},{"name":"scripts","total_count":15,"children":[{"name":"batch.ps1","total_count":6,"children":[{"name":"Get-ImageFiles()","total_count":1,"children":[]},{"name":"Get-OutputDir()","total_count":1,"children":[]},{"name":"Invoke-Cleanup()","total_count":1,"children":[]},{"name":"Invoke-DirBatch()","total_count":1,"children":[]},{"name":"Invoke-Python()","total_count":1,"children":[]},{"name":"Test-OutputExists()","total_count":1,"children":[]}]},{"name":"monitor.ps1","total_count":8,"children":[{"name":"Format-Dur()","total_count":1,"children":[]},{"name":"Get-Bar()","total_count":1,"children":[]},{"name":"Get-ProcCpuPct()","total_count":1,"children":[]},{"name":"Get-ScriptName()","total_count":1,"children":[]},{"name":"Move-Up()","total_count":1,"children":[]},{"name":"Update-GpuTimer()","total_count":1,"children":[]},{"name":"Write-Metric()","total_count":1,"children":[]},{"name":"Write-Sep()","total_count":1,"children":[]}]},{"name":"multi-batch.ps1","total_count":1,"children":[]}]},{"name":"src","total_count":179,"children":[{"name":"_batch_utils.py","total_count":5,"children":[{"name":"chunked()","total_count":1,"children":[]},{"name":"Format a per-model batch-run summary as a table string.","total_count":1,"children":[]},{"name":"format_summary()","total_count":1,"children":[]},{"name":"src/_batch_utils.py — pure-Python helpers for VLM batch orchestration.  No tor","total_count":1,"children":[]},{"name":"Yield successive lists of up to `size` items from `items`.     Empty iterable y","total_count":1,"children":[]}]},{"name":"analyze.py","total_count":4,"children":[{"name":"_handle_sigint()","total_count":1,"children":[]},{"name":"_process_run()","total_count":1,"children":[]},{"name":"main()","total_count":1,"children":[]},{"name":"src/analyze.py — poll DB and annotate unanalyzed runs with active VLM model.","total_count":1,"children":[]}]},{"name":"batch_lock.py","total_count":13,"children":[{"name":"_lock_path()","total_count":1,"children":[]},{"name":"_pid_alive()","total_count":1,"children":[]},{"name":"_safe_unlink()","total_count":1,"children":[]},{"name":"acquire()","total_count":1,"children":[]},{"name":"check()","total_count":1,"children":[]},{"name":"Convenience bool wrapper around check().","total_count":1,"children":[]},{"name":"Delete the lock file. Safe to call if it does not exist.","total_count":1,"children":[]},{"name":"is_locked()","total_count":1,"children":[]},{"name":"release()","total_count":1,"children":[]},{"name":"Return the lock dict if a live process holds it, else None.      Auto-deletes","total_count":1,"children":[]},{"name":"Return True if the process with pid is currently running.","total_count":1,"children":[]},{"name":"src/batch_lock.py — GPU-busy lock file for yogamann batch inference.  Prevents","total_count":1,"children":[]},{"name":"Write the lock file and return its path.      Args:         output_root: Dire","total_count":1,"children":[]}]},{"name":"compare_vlm.py","total_count":16,"children":[{"name":"_compute_slice_size()","total_count":1,"children":[]},{"name":"_count_completed()","total_count":1,"children":[]},{"name":"_fetch_run_candidates()","total_count":1,"children":[]},{"name":"_fmt_eta()","total_count":1,"children":[]},{"name":"_historical_avg_latency()","total_count":1,"children":[]},{"name":"_run_model_phase()","total_count":1,"children":[]},{"name":"_ts()","total_count":1,"children":[]},{"name":"Annotate up to max_images candidate runs with one model, in micro-batches.","total_count":1,"children":[]},{"name":"Brief HH:MM:SS timestamp for log lines.","total_count":1,"children":[]},{"name":"Compact ETA — auto-choose seconds/minutes/hours.","total_count":1,"children":[]},{"name":"Completed annotations for this model within the active candidate set.","total_count":1,"children":[]},{"name":"Images to run in one round for this model.      Priority:       1. --slice N","total_count":1,"children":[]},{"name":"main()","total_count":1,"children":[]},{"name":"Mean latency_s for this model from prior annotations.     Returns (avg_seconds,","total_count":1,"children":[]},{"name":"Return the candidate run set the user is filtering to.     Per-model resumabili","total_count":1,"children":[]},{"name":"src/compare_vlm.py — multi-model VLM annotation orchestrator.  Model-major loo","total_count":1,"children":[]}]},{"name":"create_contact_sheet.py","total_count":5,"children":[{"name":"_depth()","total_count":1,"children":[]},{"name":"_meta()","total_count":1,"children":[]},{"name":"build_comparison_2()","total_count":1,"children":[]},{"name":"build_comparison_4()","total_count":1,"children":[]},{"name":"create_contact_sheet.py -- build side-by-side comparison images.  Two layouts:","total_count":1,"children":[]}]},{"name":"db.py","total_count":30,"children":[{"name":"All users' annotations for a run, joined with user name.","total_count":1,"children":[]},{"name":"count_vlm_annotations()","total_count":1,"children":[]},{"name":"db.py — SQLite revision-history store for yogamann.  Schema ------   source_","total_count":1,"children":[]},{"name":"get_all_annotations()","total_count":1,"children":[]},{"name":"get_annotation()","total_count":1,"children":[]},{"name":"get_or_create_thumbnail()","total_count":1,"children":[]},{"name":"get_or_create_user()","total_count":1,"children":[]},{"name":"get_runs()","total_count":1,"children":[]},{"name":"get_runs_for_source()","total_count":1,"children":[]},{"name":"get_stats()","total_count":1,"children":[]},{"name":"get_thumbnail()","total_count":1,"children":[]},{"name":"get_unanalyzed_runs()","total_count":1,"children":[]},{"name":"get_users()","total_count":1,"children":[]},{"name":"get_vlm_annotations()","total_count":1,"children":[]},{"name":"get_vlm_comparison_page()","total_count":1,"children":[]},{"name":"ingest_all()","total_count":1,"children":[]},{"name":"ingest_json()","total_count":1,"children":[]},{"name":"make_thumbnail()","total_count":1,"children":[]},{"name":"open_db()","total_count":1,"children":[]},{"name":"Read a .metrics.json sidecar and upsert into the DB.     Returns the run id, or","total_count":1,"children":[]},{"name":"Return (rows, total_count) of runs with ≥1 VLM annotation, pivoted by model.","total_count":1,"children":[]},{"name":"Return JPEG bytes of a thumbnail, preserving aspect ratio.","total_count":1,"children":[]},{"name":"Return the number of vlm_annotations rows for a model — used to     report 'alr","total_count":1,"children":[]},{"name":"Return the user row if name+password match, else None.","total_count":1,"children":[]},{"name":"Returns runs with no vlm_annotations entry for model_id.     Each row exposes:","total_count":1,"children":[]},{"name":"save_annotation()","total_count":1,"children":[]},{"name":"save_rating()","total_count":1,"children":[]},{"name":"save_vlm_annotation()","total_count":1,"children":[]},{"name":"sha256_file()","total_count":1,"children":[]},{"name":"Walk root for *.metrics.json and ingest each. Returns (ok, skipped).","total_count":1,"children":[]}]},{"name":"diagnostics","total_count":3,"children":[{"name":"rtx5080-test.py","total_count":3,"children":[{"name":"check_yogamann_imports()","total_count":1,"children":[]},{"name":"main()","total_count":1,"children":[]},{"name":"run_benchmark()","total_count":1,"children":[]}]}]},{"name":"download_models.py","total_count":2,"children":[{"name":"_download()","total_count":1,"children":[]},{"name":"src/download_models.py — pre-fetch all HF model weights.  Usage:     python s","total_count":1,"children":[]}]},{"name":"dwpose_onnx.py","total_count":7,"children":[{"name":".__call__()","total_count":1,"children":[]},{"name":".__init__()","total_count":1,"children":[]},{"name":".to()","total_count":1,"children":[]},{"name":"_render()","total_count":1,"children":[]},{"name":"Convert rtmlib 133-pt output to an OpenPose skeleton image.          Replicates","total_count":1,"children":[]},{"name":"DWposeDetector","total_count":1,"children":[]},{"name":"ONNX-based DWPose detector — drop-in for controlnet_aux.DWposeDetector.  Uses rt","total_count":1,"children":[]}]},{"name":"extract_pose.py","total_count":6,"children":[{"name":"_get_detector()","total_count":1,"children":[]},{"name":"extract_pose.py -- detect a full-body pose and export:  1. Transparent PNG  (DWP","total_count":1,"children":[]},{"name":"make_controlnet_mask()","total_count":1,"children":[]},{"name":"Run DWPose on `img_path`, write the skeleton PNG to `out_png`.     Returns an em","total_count":1,"children":[]},{"name":"save_keypoints()","total_count":1,"children":[]},{"name":"Write a provenance JSON sidecar (keypoints list may be empty for DWPose).","total_count":1,"children":[]}]},{"name":"gallery.py","total_count":17,"children":[{"name":"_autosave()","total_count":1,"children":[]},{"name":"_get_conn()","total_count":1,"children":[]},{"name":"_get_win_job()","total_count":1,"children":[]},{"name":"_human_badge_html()","total_count":1,"children":[]},{"name":"_inference_terminal_dialog()","total_count":1,"children":[]},{"name":"_init()","total_count":1,"children":[]},{"name":"_launch_vlm_inference()","total_count":1,"children":[]},{"name":"_render_agreement_matrix()","total_count":1,"children":[]},{"name":"_render_vlm_table()","total_count":1,"children":[]},{"name":"_status()","total_count":1,"children":[]},{"name":"_thumb_image()","total_count":1,"children":[]},{"name":"_version_info()","total_count":1,"children":[]},{"name":"_vlm_badge_html()","total_count":1,"children":[]},{"name":"_vlm_cell_style()","total_count":1,"children":[]},{"name":"gallery.py — live review gallery for yogamann outputs (DB-backed).  Usage:","total_count":1,"children":[]},{"name":"Modal showing live stdout from the active inference subprocess.","total_count":1,"children":[]},{"name":"Spawn a compare_vlm.py subprocess for one (model, run) and store in session_stat","total_count":1,"children":[]}]},{"name":"gpu_monitor.py","total_count":9,"children":[{"name":"_query_nvidia_smi()","total_count":1,"children":[]},{"name":"Block for sleep_s seconds if GPU temp is at or above threshold_c.      Prints","total_count":1,"children":[]},{"name":"cooldown_if_hot()","total_count":1,"children":[]},{"name":"fmt_metrics()","total_count":1,"children":[]},{"name":"One-line human-readable summary for console output.","total_count":1,"children":[]},{"name":"Return a snapshot of GPU and CPU metrics.      Keys: ts, gpu_temp_c, gpu_util_","total_count":1,"children":[]},{"name":"Run nvidia-smi once; parse temp/util/mem/power. Returns {} on failure.","total_count":1,"children":[]},{"name":"sample()","total_count":1,"children":[]},{"name":"src/gpu_monitor.py — lightweight GPU + CPU sampler for long-running batch jobs.","total_count":1,"children":[]}]},{"name":"make_gallery.py","total_count":5,"children":[{"name":"_card()","total_count":1,"children":[]},{"name":"_cfg_badges()","total_count":1,"children":[]},{"name":"_read_meta()","total_count":1,"children":[]},{"name":"build_gallery()","total_count":1,"children":[]},{"name":"make_gallery.py — scan output/ for comparison PNGs and write output/index.html.","total_count":1,"children":[]}]},{"name":"make_mannequin.py","total_count":9,"children":[{"name":"_detect_format()","total_count":1,"children":[]},{"name":"_read_profile()","total_count":1,"children":[]},{"name":"build_tasks()","total_count":1,"children":[]},{"name":"expand_value()","total_count":1,"children":[]},{"name":"Find & read a profile, guessing extension + format when omitted.","total_count":1,"children":[]},{"name":"linspace()","total_count":1,"children":[]},{"name":"make_mannequin.py – batch planner / driver 2025‑07‑20  ·  smarter versions  ·","total_count":1,"children":[]},{"name":"next_free_stem()","total_count":1,"children":[]},{"name":"pad_version()","total_count":1,"children":[]}]},{"name":"sd_make.py","total_count":4,"children":[{"name":"_vram()","total_count":1,"children":[]},{"name":"build_pipe()","total_count":1,"children":[]},{"name":"render()","total_count":1,"children":[]},{"name":"sd_make.py -- worker (single task or work-list) · SDXL + ControlNet-OpenPose-SDX","total_count":1,"children":[]}]},{"name":"vlm_inference.py","total_count":36,"children":[{"name":"_build_messages()","total_count":1,"children":[]},{"name":"_extract_user_text()","total_count":1,"children":[]},{"name":"_get_tokenizer()","total_count":1,"children":[]},{"name":"_infer()","total_count":1,"children":[]},{"name":"_infer_batch()","total_count":1,"children":[]},{"name":"_infer_internvl()","total_count":1,"children":[]},{"name":"_infer_minicpm_v()","total_count":1,"children":[]},{"name":"_infer_molmo()","total_count":1,"children":[]},{"name":"_internvl_preprocess()","total_count":1,"children":[]},{"name":"_load_config()","total_count":1,"children":[]},{"name":"_load_model()","total_count":1,"children":[]},{"name":"_parse_output()","total_count":1,"children":[]},{"name":"_patch_internvl_generation_mixin()","total_count":1,"children":[]},{"name":"_patch_minicpm_v_normalize_compat()","total_count":1,"children":[]},{"name":"_patch_qwen2_init_weights_for_bnb()","total_count":1,"children":[]},{"name":"_resize_for_vlm()","total_count":1,"children":[]},{"name":"_validate()","total_count":1,"children":[]},{"name":"Annotate multiple (photo_path, render_path) pairs in a single batched GPU call.","total_count":1,"children":[]},{"name":"annotate()","total_count":1,"children":[]},{"name":"annotate_batch()","total_count":1,"children":[]},{"name":"Downscale image so the longer side <= max_side, preserving aspect ratio.","total_count":1,"children":[]},{"name":"Drop a cached model and free its GPU memory.      Safe to call when model_key","total_count":1,"children":[]},{"name":"Drop all cached models and tokenizers. Same semantics as     evict_model called","total_count":1,"children":[]},{"name":"evict_all()","total_count":1,"children":[]},{"name":"evict_model()","total_count":1,"children":[]},{"name":"InternVL preprocessing: resize to square + ImageNet normalize -> fp32 CPU tensor","total_count":1,"children":[]},{"name":"InternVL uses model.chat(tokenizer, pixel_values, question, ...) — not generate(","total_count":1,"children":[]},{"name":"MiniCPM-V uses model.chat(image=None, msgs=[...], tokenizer=) — multi-image","total_count":1,"children":[]},{"name":"Molmo uses processor.process(images=, text=) + model.generate_from_batch().","total_count":1,"children":[]},{"name":"Pull the user prompt out of a message. Handles both the structured form     {\"c","total_count":1,"children":[]},{"name":"Run a batched forward pass for multiple (photo, render) pairs.      images_lis","total_count":1,"children":[]},{"name":"src/vlm_inference.py — lazy-cached VLM inference core.  Entry point:     resu","total_count":1,"children":[]},{"name":"transformers >=4.49 normalize() requires mean/std to be collections.abc.Sequence","total_count":1,"children":[]},{"name":"transformers >=4.50 stopped auto-inheriting GenerationMixin in PreTrainedModel.","total_count":1,"children":[]},{"name":"transformers Qwen2 `_init_weights` calls `.normal_()` on Linear weights.     Wh","total_count":1,"children":[]},{"name":"VLMSchemaError","total_count":1,"children":[]}]},{"name":"win_job.py","total_count":8,"children":[{"name":"_IO_COUNTERS","total_count":1,"children":[]},{"name":"_JOBOBJECT_BASIC_LIMIT_INFORMATION","total_count":1,"children":[]},{"name":"_JOBOBJECT_EXTENDED_LIMIT_INFORMATION","total_count":1,"children":[]},{"name":"Assign the process identified by pid to the job object.      Returns True on s","total_count":1,"children":[]},{"name":"assign_process()","total_count":1,"children":[]},{"name":"Create (or open) a named Windows Job Object with KILL_ON_JOB_CLOSE.      Retur","total_count":1,"children":[]},{"name":"create_job()","total_count":1,"children":[]},{"name":"src/win_job.py — Windows Job Object wrapper for auto-kill of child processes.","total_count":1,"children":[]}]}]},{"name":"tests","total_count":43,"children":[{"name":"test_batch_utils.py","total_count":7,"children":[{"name":"test_chunked_empty()","total_count":1,"children":[]},{"name":"test_chunked_exact_divisor()","total_count":1,"children":[]},{"name":"test_chunked_remainder()","total_count":1,"children":[]},{"name":"test_chunked_size_larger_than_input()","total_count":1,"children":[]},{"name":"test_chunked_size_zero_raises()","total_count":1,"children":[]},{"name":"test_format_summary_basic()","total_count":1,"children":[]},{"name":"test_format_summary_empty()","total_count":1,"children":[]}]},{"name":"test_db_thumbnail.py","total_count":13,"children":[{"name":"_make_jpeg()","total_count":1,"children":[]},{"name":"After first call populates thumbnails, second call uses the DB fast path.","total_count":1,"children":[]},{"name":"conn()","total_count":1,"children":[]},{"name":"conn_with_source()","total_count":1,"children":[]},{"name":"test_disk_fallback_returns_bytes_and_writes_to_db()","total_count":1,"children":[]},{"name":"test_fast_path_returns_existing_blob()","total_count":1,"children":[]},{"name":"test_missing_file_on_disk_returns_none()","total_count":1,"children":[]},{"name":"test_missing_sha256_returns_none()","total_count":1,"children":[]},{"name":"test_second_call_uses_db_not_disk()","total_count":1,"children":[]},{"name":"When sha256 is absent from both thumbnails and source_images, return None.","total_count":1,"children":[]},{"name":"When source_images has the sha256 but the file is gone, return None.","total_count":1,"children":[]},{"name":"When thumbnails table already has the sha256, return that blob directly.","total_count":1,"children":[]},{"name":"When thumbnails table misses, load from disk, return bytes, and write back.","total_count":1,"children":[]}]},{"name":"test_db_vlm.py","total_count":8,"children":[{"name":"_seed_run()","total_count":1,"children":[]},{"name":"conn()","total_count":1,"children":[]},{"name":"test_get_unanalyzed_runs_excludes_annotated()","total_count":1,"children":[]},{"name":"test_get_unanalyzed_runs_exposes_paths()","total_count":1,"children":[]},{"name":"test_get_unanalyzed_runs_includes_unannotated()","total_count":1,"children":[]},{"name":"test_save_and_get_vlm_annotation()","total_count":1,"children":[]},{"name":"test_two_models_two_rows()","total_count":1,"children":[]},{"name":"test_upsert_replaces_existing()","total_count":1,"children":[]}]},{"name":"test_vlm_inference.py","total_count":14,"children":[{"name":"_make_images()","total_count":1,"children":[]},{"name":"test_annotate_raises_on_missing_photo()","total_count":1,"children":[]},{"name":"test_annotate_raises_on_missing_render()","total_count":1,"children":[]},{"name":"test_annotate_raises_on_second_bad_json()","total_count":1,"children":[]},{"name":"test_annotate_retries_on_bad_json()","total_count":1,"children":[]},{"name":"test_annotate_returns_structured_dict()","total_count":1,"children":[]},{"name":"test_parse_bare_json()","total_count":1,"children":[]},{"name":"test_parse_raises_on_bad_json()","total_count":1,"children":[]},{"name":"test_parse_strips_assistant_prefix()","total_count":1,"children":[]},{"name":"test_parse_strips_im_start_prefix()","total_count":1,"children":[]},{"name":"test_parse_strips_markdown_fence()","total_count":1,"children":[]},{"name":"test_validate_passes_complete_dict()","total_count":1,"children":[]},{"name":"test_validate_raises_on_missing_rating()","total_count":1,"children":[]},{"name":"test_validate_raises_on_multiple_missing()","total_count":1,"children":[]}]},{"name":"conftest.py","total_count":1,"children":[]}]}]};
+
+    function transformData(jsonData) {
+        // Helper function to recursively build the children structure
+        function processNode(node, parentL1StageName) {
+            let displayName = node.name;
+            // Append total_count if it exists and is not already in the name
+            if (node.total_count !== undefined) {
+                if (!/\(Total Count: \d+\)$/.test(displayName)) {
+                    displayName += ` (Total Count: ${node.total_count})`;
+                }
+            }
+
+            const newNode = { name: displayName };
+
+            if (parentL1StageName === "Root") {
+                 newNode.originalStageName = node.name;
+            } else {
+                newNode.originalStageName = parentL1StageName;
+            }
+
+            if (node.children && node.children.length > 0) {
+                const stageNameToPass = (parentL1StageName === "Root") ? node.name : parentL1StageName;
+                newNode.children = node.children.map(child => processNode(child, stageNameToPass));
+            }
+
+            return newNode;
+        }
+
+        let rootDisplayName = jsonData.name;
+        if (jsonData.total_count !== undefined && !/\(Total Count: \d+\)$/.test(rootDisplayName)) {
+            rootDisplayName += ` (Total Count: ${jsonData.total_count})`;
+        }
+
+        return {
+            name: rootDisplayName,
+            originalStageName: "Root",
+            children: (jsonData.children || []).map(child => processNode(child, "Root"))
+        };
+    }
+
+    const treeData = transformData(initialJsonData);
+
+    // Auto-populated phaseColors: every depth-1 child of the root gets
+    // a stable colour from a bigger palette so all top-level dirs are
+    // distinguishable.
+    const PALETTE = [
+      ["#3498DB","#2980B9","#AED6F1"], ["#2ECC71","#27AE60","#A9DFBF"],
+      ["#E74C3C","#C0392B","#F5B7B1"], ["#9B59B6","#8E44AD","#D7BDE2"],
+      ["#F39C12","#D68910","#FAD7A0"], ["#1ABC9C","#117864","#A2D9CE"],
+      ["#34495E","#1B2631","#ABB2B9"], ["#E67E22","#BA4A00","#F5CBA7"],
+      ["#16A085","#0E6655","#A2D9CE"], ["#D35400","#A04000","#EDBB99"],
+      ["#7F8C8D","#566573","#D5DBDB"], ["#C0392B","#7B241C","#F5B7B1"],
+      ["#2E86C1","#1B4F72","#A9CCE3"], ["#28B463","#196F3D","#A9DFBF"],
+      ["#AF7AC5","#6C3483","#D2B4DE"],
+    ];
+    const phaseColors = { "Root": { fill: "#4A4A4A", stroke: "#333333", collapsedFill: "#6C757D" },
+                          "Default": { fill: "#BDC3C7", stroke: "#95A5A6", collapsedFill: "#ECF0F1" } };
+    (initialJsonData.children || []).forEach((c, i) => {
+      const pal = PALETTE[i % PALETTE.length];
+      phaseColors[c.name] = { fill: pal[0], stroke: pal[1], collapsedFill: pal[2] };
+    });
+
+    const levelSpecificPalettes = {
+      0: { fill: "#4A4A4A", stroke: "#333333", collapsedFill: "#6C757D" },
+      2: { fill: "#6ab04c", stroke: "#508a38", collapsedFill: "#a3d391" },
+      3: { fill: "#f0932b", stroke: "#d0730f", collapsedFill: "#f6c07e" },
+      4: { fill: "#be2edd", stroke: "#a01cb3", collapsedFill: "#e08bf2" },
+      5: { fill: "#00a8ff", stroke: "#007ac1", collapsedFill: "#74d2ff" },
+      6: { fill: "#e55039", stroke: "#c23620", collapsedFill: "#f09a8d" },
+      default: { fill: "#747d8c", stroke: "#57606f", collapsedFill: "#a4b0be" }
+    };
+
+    const svgElement = d3.select("#tree-svg");
+    const initialSvgWidth = +svgElement.attr("width");
+    const initialSvgHeight = +svgElement.attr("height");
+    const margin = { top: 40, right: 120, bottom: 80, left: 450 };
+    let width = initialSvgWidth - margin.left - margin.right;
+    let height = initialSvgHeight - margin.top - margin.bottom;
+    const duration = 500;
+    let nodeCounter = 0;
+    const g = svgElement.append("g").attr("transform", `translate(${margin.left},${margin.top})`);
+    const treemap = d3.tree().nodeSize([40, 0]);
+    let rootNode = d3.hierarchy(treeData, d => d.children);
+    rootNode.x0 = 0;
+    rootNode.y0 = 0;
+
+    if (rootNode.children) {
+      rootNode.children.forEach(d_child => {
+        if (d_child.children) { collapseBranch(d_child); }
+      });
+    }
+    updateTree(rootNode);
+
+    function collapseBranch(d) { if (d.children) { d._children = d.children; d._children.forEach(collapseBranch); d.children = null; } }
+    function expandBranch(d) { if (d._children) { d.children = d._children; d._children = null; } if (d.children) { d.children.forEach(expandBranch); } }
+    window.expandAll = () => { expandBranch(rootNode); updateTree(rootNode); };
+    window.collapseAll = () => { if (rootNode.children) { rootNode.children.forEach(collapseBranch); } updateTree(rootNode); };
+    window.resetView = () => { if (rootNode.children) { rootNode.children.forEach(d_child => { if (d_child.children || d_child._children) { collapseBranch(d_child); } }); } if (rootNode._children && !rootNode.children) { rootNode.children = rootNode._children; rootNode._children = null; } updateTree(rootNode); };
+
+    function updateTree(source) {
+      const treeLayoutData = treemap(rootNode);
+      let nodes = treeLayoutData.descendants();
+      let links = treeLayoutData.descendants().slice(1);
+
+      let minX = 0;
+      let maxX = 0;
+      if (nodes.length > 0) {
+        minX = d3.min(nodes, d => d.x);
+        maxX = d3.max(nodes, d => d.x);
+      }
+
+      let neededHeight = Math.max(initialSvgHeight, maxX - minX + margin.top + margin.bottom + 100);
+      svgElement.transition().duration(duration / 2).attr("height", neededHeight);
+      g.transition().duration(duration / 2).attr("transform", `translate(${margin.left},${margin.top - minX + 40})`);
+
+      nodes.forEach(d => { d.y = d.depth * 400; }); // Adjust horizontal separation if needed
+
+      const node = g.selectAll('g.node').data(nodes, d => d.id || (d.id = ++nodeCounter));
+      const nodeEnter = node.enter().append('g')
+        .attr('class', d => "node" + (d.children || d._children ? " node--internal" : " node--leaf") + (d._children ? " _children" : ""))
+        .attr('transform', d => `translate(${source.y0},${source.x0})`)
+        .on('click', (event, d) => { if (d.children) { d._children = d.children; d.children = null; } else if (d._children) { d.children = d._children; d._children = null; } updateTree(d); })
+        .style('cursor', d => (d.children || d._children) ? 'pointer' : 'default');
+
+      nodeEnter.append('circle').attr('r', 1e-6);
+
+      nodeEnter.append('text')
+        .attr('dy', '.35em')
+        .attr('x', d => d.children || d._children ? -14 : 14)
+        .attr('text-anchor', d => d.children || d._children ? 'end' : 'start')
+        .style("fill-opacity", 1e-6)
+        .call(wrapText, 380);
+
+      const nodeUpdate = nodeEnter.merge(node);
+      nodeUpdate.transition().duration(duration)
+        .attr('transform', d => `translate(${d.y},${d.x})`)
+        .attr('class', d => "node" + (d.children ? " node--internal" : " node--leaf") + (d._children ? " node--internal _children" : ""));
+
+      nodeUpdate.select('circle').attr('r', 8.5)
+        .style('fill', d => {
+            let palette;
+            if (d.depth === 0) {
+                palette = levelSpecificPalettes[0];
+            } else if (d.depth === 1) {
+                palette = phaseColors[d.data.originalStageName] || phaseColors.Default;
+            } else {
+                palette = levelSpecificPalettes[d.depth] || levelSpecificPalettes.default;
+            }
+            if (d._children) return palette.collapsedFill;
+            if (d.children) return palette.fill;
+            return "#fff";
+        })
+        .style('stroke', d => {
+            let palette;
+            if (d.depth === 0) {
+                palette = levelSpecificPalettes[0];
+            } else if (d.depth === 1) {
+                palette = phaseColors[d.data.originalStageName] || phaseColors.Default;
+            } else {
+                palette = levelSpecificPalettes[d.depth] || levelSpecificPalettes.default;
+            }
+            return palette.stroke;
+        });
+      nodeUpdate.select('text').style("fill-opacity", 1).call(wrapText, 380);
+
+      const nodeExit = node.exit().transition().duration(duration).attr('transform', d => `translate(${source.y},${source.x})`).remove();
+      nodeExit.select('circle').attr('r', 1e-6);
+      nodeExit.select('text').style('fill-opacity', 1e-6);
+
+      const link = g.selectAll('path.link').data(links, d => d.id);
+      const linkEnter = link.enter().insert('path', "g").attr('class', 'link').attr('d', d => { const o = { x: source.x0, y: source.y0 }; return diagonal(o, o); });
+
+      linkEnter.merge(link).transition().duration(duration).attr('d', d => diagonal(d, d.parent))
+        .style('stroke', d => {
+            const sourceNode = d.parent;
+            if (!sourceNode) return phaseColors.Default.stroke;
+            const l1AncestorName = sourceNode.data.originalStageName;
+            const colorPalette = phaseColors[l1AncestorName] || phaseColors.Default;
+            return colorPalette.stroke;
+        });
+      link.exit().transition().duration(duration).attr('d', d => { const o = { x: source.x, y: source.y }; return diagonal(o, o); }).remove();
+      nodes.forEach(d => { d.x0 = d.x; d.y0 = d.y; });
+    }
+
+    function diagonal(s, d) { return `M ${s.y} ${s.x} C ${(s.y + d.y) / 2} ${s.x}, ${(s.y + d.y) / 2} ${d.x}, ${d.y} ${d.x}`; }
+
+    function wrapText(textElements, maxWidth) {
+        const textPartColors = {
+            name: '#343a40',
+            count: '#0056b3'
+        };
+        const countRegex = /(\s\(Total Count: \d+\))$/;
+
+        textElements.each(function () {
+            const textD3 = d3.select(this);
+            const originalNodeText = textD3.datum().data.name;
+            const x = parseFloat(textD3.attr("x") || 0);
+            const initialDy = textD3.attr("dy");
+            const textAnchor = textD3.attr("text-anchor");
+            const lineHeight = 1.1;
+
+            textD3.text(null);
+
+            let namePart = originalNodeText;
+            let countPartText = "";
+
+            const countMatch = originalNodeText.match(countRegex);
+            if (countMatch && originalNodeText.endsWith(countMatch[0])) {
+                namePart = originalNodeText.substring(0, originalNodeText.length - countMatch[0].length).trim();
+                countPartText = countMatch[0].trim();
+            }
+
+            const tokens = [];
+            namePart.split(/\s+/).filter(Boolean).forEach(word => {
+                tokens.push({ text: word, type: 'name' });
+            });
+            if (countPartText) {
+                tokens.push({ text: countPartText, type: 'count' });
+            }
+
+            if (tokens.length === 0 && originalNodeText) {
+                tokens.push({ text: originalNodeText, type: 'name' });
+            }
+
+            let currentTspan = textD3.append("tspan").attr("x", x).attr("dy", initialDy);
+            if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
+
+            let lineTokens = [];
+
+            for (let i = 0; i < tokens.length; i++) {
+                const tokenObj = tokens[i];
+
+                lineTokens.push(tokenObj);
+                currentTspan.text(lineTokens.map(t => t.text).join(" "));
+
+                if (currentTspan.node().getComputedTextLength() > maxWidth && lineTokens.length > 1) {
+                    lineTokens.pop();
+
+                    currentTspan.text(null);
+                    lineTokens.forEach((prevToken, idx) => {
+                        currentTspan.append("tspan")
+                            .text((idx > 0 ? " " : "") + prevToken.text)
+                            .style("fill", textPartColors[prevToken.type] || textPartColors.name)
+                            .style("font-weight", prevToken.type === 'count' ? "bold" : "normal");
+                    });
+
+                    lineTokens = [tokenObj];
+                    currentTspan = textD3.append("tspan").attr("x", x).attr("dy", lineHeight + "em");
+                    if (textAnchor === "end") currentTspan.attr("text-anchor", "end");
+                }
+            }
+
+            currentTspan.text(null);
+            lineTokens.forEach((token, idx) => {
+                currentTspan.append("tspan")
+                    .text((idx > 0 ? " " : "") + token.text)
+                    .style("fill", textPartColors[token.type] || textPartColors.name)
+                    .style("font-weight", token.type === 'count' ? "bold" : "normal");
+            });
+
+            if (textD3.selectAll("tspan > tspan").empty() && textD3.select("tspan").text().length === 0 && originalNodeText) {
+                let t = textD3.select("tspan");
+                let displayText = originalNodeText;
+                t.text(displayText).style("fill", textPartColors.name);
+                if (t.node() && t.node().getComputedTextLength() > maxWidth && displayText.length > 20) {
+                    let estimatedChars = Math.floor(maxWidth / (t.node().getComputedTextLength()/displayText.length) );
+                    displayText = displayText.substring(0, Math.max(0, estimatedChars - 3)) + "...";
+                    t.text(displayText);
+                }
+            }
+        });
+    }
+  </script>
+</body>
+</html>

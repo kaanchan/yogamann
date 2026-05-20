@@ -1,0 +1,13 @@
+[book]
+title = "yogamann"
+description = "Knowledge graph wiki for the yogamann pose analysis pipeline"
+src = "wiki"
+language = "en"
+
+[build]
+build-dir = "mdbook-out"
+
+[output.html]
+default-theme = "navy"
+preferred-dark-theme = "navy"
+git-repository-url = ""

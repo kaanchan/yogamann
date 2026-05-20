@@ -1,0 +1,21 @@
+# Generated outputs — not source material
+output/
+graphify-out/
+
+# Input images — reference poses, not code or docs
+input/
+
+# Old v1 archived code — superseded by current src/
+docs/archive/
+
+# Generated PNG reference outputs — visual artifacts, not analyzable text
+docs/reference-outputs/
+
+# Superpowers brainstorm artifacts — ephemeral session files
+.superpowers/
+
+# Claude agent temp files
+.claude/tmp/
+
+# Lock files and build artifacts
+uv.lock

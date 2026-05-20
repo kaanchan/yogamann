@@ -1,0 +1,592 @@
+{
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\make.ps1": {
+    "mtime": 1778881911.4532611,
+    "ast_hash": "ea0fed341ffaa5a09b068bd31b1c96ee",
+    "semantic_hash": "ea0fed341ffaa5a09b068bd31b1c96ee"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\settings.local.json": {
+    "mtime": 1778901383.793852,
+    "ast_hash": "572c56f7aee09a1d714f75eda8ab2e0a",
+    "semantic_hash": "572c56f7aee09a1d714f75eda8ab2e0a"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\check_events.ps1": {
+    "mtime": 1778532140.4310186,
+    "ast_hash": "a3e83469efbcdad0e2de1207211a1f5b",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\check_events2.ps1": {
+    "mtime": 1778532305.3025854,
+    "ast_hash": "050507fcf0d480cf4739c2b24da0cff1",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\src\\create_contact_sheet.py": {
+    "mtime": 1778620933.2060788,
+    "ast_hash": "67538fbced518bda5cd55ba61c87eb79",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\src\\extract_pose.py": {
+    "mtime": 1778620872.3413258,
+    "ast_hash": "818e4c241bf7e8b4e779b02e0f401132",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\src\\make_mannequin.py": {
+    "mtime": 1778620916.914938,
+    "ast_hash": "7e61c040d9f0dcfa230fa8fcf1ad9fc9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\src\\sd_make.py": {
+    "mtime": 1778620890.041078,
+    "ast_hash": "7f3c1e025943d0c9f651b57026a70eee",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\observations\\observations.json": {
+    "mtime": 1778607459.2340343,
+    "ast_hash": "742b05d8a70db9a67b47cb34dcbf83e0",
+    "semantic_hash": "742b05d8a70db9a67b47cb34dcbf83e0"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\scripts\\batch.ps1": {
+    "mtime": 1778558608.4437363,
+    "ast_hash": "c0b1861827e28cbd423689a46fc73c1c",
+    "semantic_hash": "c0b1861827e28cbd423689a46fc73c1c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\scripts\\monitor.ps1": {
+    "mtime": 1778531204.2111154,
+    "ast_hash": "a135c4920b8d669af81ee2b03a1fbf86",
+    "semantic_hash": "a135c4920b8d669af81ee2b03a1fbf86"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\scripts\\multi-batch.ps1": {
+    "mtime": 1778558596.9403958,
+    "ast_hash": "e17d3e5f245d5ff218fc97bfe3b3fc3c",
+    "semantic_hash": "e17d3e5f245d5ff218fc97bfe3b3fc3c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\analyze.py": {
+    "mtime": 1778881911.4570253,
+    "ast_hash": "ec3e6199cc5f666b6396dc84c3a567aa",
+    "semantic_hash": "ec3e6199cc5f666b6396dc84c3a567aa"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\batch_lock.py": {
+    "mtime": 1778881911.4575615,
+    "ast_hash": "8d91b599712984817dea5f32a7032ab8",
+    "semantic_hash": "8d91b599712984817dea5f32a7032ab8"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\compare_vlm.py": {
+    "mtime": 1778899698.8072028,
+    "ast_hash": "fd811152ccf2208cc5fea0c7ab49dcda",
+    "semantic_hash": "fd811152ccf2208cc5fea0c7ab49dcda"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\create_contact_sheet.py": {
+    "mtime": 1778516190.3514516,
+    "ast_hash": "b482a6c3144023fb4d819d1fca4ca03f",
+    "semantic_hash": "b482a6c3144023fb4d819d1fca4ca03f"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\db.py": {
+    "mtime": 1778909051.6762784,
+    "ast_hash": "45bacc9b1fcc981a8a0fbb4be76e4d7b",
+    "semantic_hash": "45bacc9b1fcc981a8a0fbb4be76e4d7b"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\download_models.py": {
+    "mtime": 1778881911.4597964,
+    "ast_hash": "1511cf2dc5cdebf231e61bc22f569ad4",
+    "semantic_hash": "1511cf2dc5cdebf231e61bc22f569ad4"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\dwpose_onnx.py": {
+    "mtime": 1778528870.7127967,
+    "ast_hash": "012124690d471f9f5166995c40b698ca",
+    "semantic_hash": "012124690d471f9f5166995c40b698ca"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\extract_pose.py": {
+    "mtime": 1778521457.9915316,
+    "ast_hash": "392a812387e8a94c0736d397a52e4f35",
+    "semantic_hash": "392a812387e8a94c0736d397a52e4f35"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\gallery.py": {
+    "mtime": 1778909051.6773162,
+    "ast_hash": "2bb7ac4333f5933b4f1218111f699677",
+    "semantic_hash": "2bb7ac4333f5933b4f1218111f699677"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\gpu_monitor.py": {
+    "mtime": 1778881911.4617493,
+    "ast_hash": "ae1239d085ad8f96d588599491599217",
+    "semantic_hash": "ae1239d085ad8f96d588599491599217"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\make_gallery.py": {
+    "mtime": 1778625791.6573162,
+    "ast_hash": "b48ecde50a23ca0c6fb0d9648f1f1870",
+    "semantic_hash": "b48ecde50a23ca0c6fb0d9648f1f1870"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\make_mannequin.py": {
+    "mtime": 1778557173.8978777,
+    "ast_hash": "3453bceb9b013a35d4a632dc6f48e81d",
+    "semantic_hash": "3453bceb9b013a35d4a632dc6f48e81d"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\sd_make.py": {
+    "mtime": 1778556688.1802323,
+    "ast_hash": "c635a368c87f3892140af94ab2c817fc",
+    "semantic_hash": "c635a368c87f3892140af94ab2c817fc"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\vlm_inference.py": {
+    "mtime": 1778899698.808382,
+    "ast_hash": "968218d2f0bb3c867dcc25e370a51bb7",
+    "semantic_hash": "968218d2f0bb3c867dcc25e370a51bb7"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\win_job.py": {
+    "mtime": 1778881911.4635198,
+    "ast_hash": "ef5a9cd1170272a9373f6d73cde04abf",
+    "semantic_hash": "ef5a9cd1170272a9373f6d73cde04abf"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\_batch_utils.py": {
+    "mtime": 1778881911.455946,
+    "ast_hash": "782aa9de2ab58f66ee35db9615d07ea1",
+    "semantic_hash": "782aa9de2ab58f66ee35db9615d07ea1"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\src\\diagnostics\\rtx5080-test.py": {
+    "mtime": 1778515233.9425635,
+    "ast_hash": "5a021ebcce097c899301db41f03eef65",
+    "semantic_hash": "5a021ebcce097c899301db41f03eef65"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\tests\\conftest.py": {
+    "mtime": 1778881911.4640427,
+    "ast_hash": "bc72d2388785f542834652cb916588f6",
+    "semantic_hash": "bc72d2388785f542834652cb916588f6"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\tests\\test_batch_utils.py": {
+    "mtime": 1778881911.4650843,
+    "ast_hash": "ce2c355390232c95958d496074970678",
+    "semantic_hash": "ce2c355390232c95958d496074970678"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\tests\\test_db_thumbnail.py": {
+    "mtime": 1778909051.677838,
+    "ast_hash": "2fbb36241315415ef94ec166546b196b",
+    "semantic_hash": "2fbb36241315415ef94ec166546b196b"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\tests\\test_db_vlm.py": {
+    "mtime": 1778881911.4656873,
+    "ast_hash": "ac60aa963d4476cacdbedb83ea111583",
+    "semantic_hash": "ac60aa963d4476cacdbedb83ea111583"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\tests\\test_vlm_inference.py": {
+    "mtime": 1778881911.4662304,
+    "ast_hash": "b0d29af8ba3622c926d59ef229e79f1c",
+    "semantic_hash": "b0d29af8ba3622c926d59ef229e79f1c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\README.md": {
+    "mtime": 1778625807.4588428,
+    "ast_hash": "753726d7e621689a1eb4029420f946ca",
+    "semantic_hash": "753726d7e621689a1eb4029420f946ca"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\requirements.txt": {
+    "mtime": 1778881911.4554095,
+    "ast_hash": "f40f1ae88995db983e7fd9fda51c1387",
+    "semantic_hash": "f40f1ae88995db983e7fd9fda51c1387"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\pm\\PENDING-TASK.md": {
+    "mtime": 1778909157.6765954,
+    "ast_hash": "184050566df927b090685ec5c2b2bf38",
+    "semantic_hash": "184050566df927b090685ec5c2b2bf38"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\pm\\PROGRESS.md": {
+    "mtime": 1778909146.5565932,
+    "ast_hash": "4b4258f355015af40e6ffe85658eb322",
+    "semantic_hash": "4b4258f355015af40e6ffe85658eb322"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\pm\\TODO.md": {
+    "mtime": 1778900618.9433055,
+    "ast_hash": "b41be73517df1595bff0afa62aa050a6",
+    "semantic_hash": "b41be73517df1595bff0afa62aa050a6"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\batched-inference-start.md": {
+    "mtime": 1778883414.7419217,
+    "ast_hash": "d0dd4d795f00f33457d79f1241a75865",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\deep-search-vision-models.md": {
+    "mtime": 1778608931.384581,
+    "ast_hash": "f4c79626de92d016781968cf3d904c46",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\gpu-management-research-prompt.md": {
+    "mtime": 1778877139.3544836,
+    "ast_hash": "cf295e1a8d1362a8cea38f9c9a26a9c4",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\tmp\\issue-33-36-start.md": {
+    "mtime": 1778900935.4667587,
+    "ast_hash": "d86af21fdbb42a92dac9e49efa102ccb",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.superpowers\\brainstorm\\18368-1778910350\\content\\gallery-filters.html": {
+    "mtime": 1778911747.547956,
+    "ast_hash": "87b3fb43b7dd0b0a18d69e3beaa2337c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.superpowers\\brainstorm\\18368-1778910350\\content\\gallery-layout.html": {
+    "mtime": 1778910433.3432825,
+    "ast_hash": "0f4043500eb8b8d7589382152fead349",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.superpowers\\brainstorm\\18368-1778910350\\content\\waiting-1.html": {
+    "mtime": 1778910547.2547216,
+    "ast_hash": "44b3ae034f564b8ed722d684a274336d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.superpowers\\brainstorm\\18368-1778910350\\content\\waiting-2.html": {
+    "mtime": 1778911801.8287826,
+    "ast_hash": "44b3ae034f564b8ed722d684a274336d",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\architecture-decisions.md": {
+    "mtime": 1778881911.438197,
+    "ast_hash": "e512f2041948b6002198c35b409a576f",
+    "semantic_hash": "e512f2041948b6002198c35b409a576f"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\environment.yml": {
+    "mtime": 1778620942.8270743,
+    "ast_hash": "d96a7a3b1eff012fbea72bc5cded2744",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\README.md": {
+    "mtime": 1778620843.7580845,
+    "ast_hash": "d5210d1076d0b1edf6e072ed193a2db0",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\archive\\v1-mediapipe-2025-07-20\\profiles\\yoga_asana.yml": {
+    "mtime": 1778620942.8539793,
+    "ast_hash": "bad228ab68cc0312b1e724f6e7ee647e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\ideal-targets\\README.md": {
+    "mtime": 1778627340.850641,
+    "ast_hash": "25148ec0cf35b2aaba3a4aa849ed18e8",
+    "semantic_hash": "25148ec0cf35b2aaba3a4aa849ed18e8"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\observations\\pipeline-observations.md": {
+    "mtime": 1778606850.09482,
+    "ast_hash": "13ff831105ab2845e8d7f51513bf3155",
+    "semantic_hash": "13ff831105ab2845e8d7f51513bf3155"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-29-vlm-pose-analysis\\chatgpt-deep-research.md": {
+    "mtime": 1778621950.9647293,
+    "ast_hash": "eaaa75fcd7fad9d19d7692d7811e864f",
+    "semantic_hash": "eaaa75fcd7fad9d19d7692d7811e864f"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-29-vlm-pose-analysis\\claude-deep-search.md": {
+    "mtime": 1778621951.0062993,
+    "ast_hash": "f4c79626de92d016781968cf3d904c46",
+    "semantic_hash": "f4c79626de92d016781968cf3d904c46"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-29-vlm-pose-analysis\\FINAL-synthesis.md": {
+    "mtime": 1778621950.942884,
+    "ast_hash": "74d2a154d2adacf0b2d942f113b693bf",
+    "semantic_hash": "74d2a154d2adacf0b2d942f113b693bf"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-29-vlm-pose-analysis\\gemini-deep-research.md": {
+    "mtime": 1778621950.9857917,
+    "ast_hash": "07d371ac8ea04fb441b217df6dea5243",
+    "semantic_hash": "07d371ac8ea04fb441b217df6dea5243"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-32-transformers-version-pinning\\chatgpt-transformer-version-pinning-deep-research-report.md": {
+    "mtime": 1778881911.4424317,
+    "ast_hash": "e0bc29fcd159b0db6acdf54f38a3438e",
+    "semantic_hash": "e0bc29fcd159b0db6acdf54f38a3438e"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-32-transformers-version-pinning\\mini-Pipeline-Transformers-Version-Pinning-deep-research-report.md": {
+    "mtime": 1778881911.4435058,
+    "ast_hash": "f7c605ed2673e39f1d1c5cd762a4525e",
+    "semantic_hash": "f7c605ed2673e39f1d1c5cd762a4525e"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-32-transformers-version-pinning\\PROMPT.md": {
+    "mtime": 1778881911.4396522,
+    "ast_hash": "9e52ff2cd2a71ade9d04fcce923937b2",
+    "semantic_hash": "9e52ff2cd2a71ade9d04fcce923937b2"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-32-transformers-version-pinning\\SYNTHESIS.md": {
+    "mtime": 1778881911.4403129,
+    "ast_hash": "3d3bad17e6fd24a74216d00f38f442de",
+    "semantic_hash": "3d3bad17e6fd24a74216d00f38f442de"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-33-pose-pipeline-evaluation\\chatgpt-deep-research-response.md": {
+    "mtime": 1778881911.4467068,
+    "ast_hash": "734752955d15a911b3db684f268e96a3",
+    "semantic_hash": "734752955d15a911b3db684f268e96a3"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-33-pose-pipeline-evaluation\\gemini-deep-research-response.md": {
+    "mtime": 1778881911.4483707,
+    "ast_hash": "a0194a025d5472e6597a6c85bd923cb2",
+    "semantic_hash": "a0194a025d5472e6597a6c85bd923cb2"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-33-pose-pipeline-evaluation\\PROMPT.md": {
+    "mtime": 1778881911.4440393,
+    "ast_hash": "cb0e1938ce2d4dd35526582a0469a8ff",
+    "semantic_hash": "cb0e1938ce2d4dd35526582a0469a8ff"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-33-pose-pipeline-evaluation\\README.md": {
+    "mtime": 1778881911.4445672,
+    "ast_hash": "33ee3e13e709a70fe5ed5601e30b7653",
+    "semantic_hash": "33ee3e13e709a70fe5ed5601e30b7653"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-33-pose-pipeline-evaluation\\SYNTHESIS.md": {
+    "mtime": 1778881911.4456477,
+    "ast_hash": "8110bea3a6cfd8cc9c3cc95fac585ff6",
+    "semantic_hash": "8110bea3a6cfd8cc9c3cc95fac585ff6"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-34-gpu-management\\chatgpt-gpu-stability-deep-research-report.md": {
+    "mtime": 1778899698.8046856,
+    "ast_hash": "bd75342d61851cefe62985c2c2105baf",
+    "semantic_hash": "bd75342d61851cefe62985c2c2105baf"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-34-gpu-management\\gemini-GPU-Stability-for-Long-Inference-deep-research-report.md": {
+    "mtime": 1778899698.8056624,
+    "ast_hash": "7b5dd5950cf3adcc425d8d3ba7db7d85",
+    "semantic_hash": "7b5dd5950cf3adcc425d8d3ba7db7d85"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-34-gpu-management\\PROMPT.md": {
+    "mtime": 1778881911.4490047,
+    "ast_hash": "88229f74db530fee80b3b5f28c691487",
+    "semantic_hash": "88229f74db530fee80b3b5f28c691487"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\research\\issue-34-gpu-management\\SYNTHESIS.md": {
+    "mtime": 1778899698.8037107,
+    "ast_hash": "adf3f9f22ac34a36e18d602fa3fe78b1",
+    "semantic_hash": "adf3f9f22ac34a36e18d602fa3fe78b1"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\plans\\2026-05-11-fast-model-download.md": {
+    "mtime": 1778518405.3747156,
+    "ast_hash": "9a49a90c48cecb0d89647d7edefcacde",
+    "semantic_hash": "9a49a90c48cecb0d89647d7edefcacde"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\plans\\2026-05-13-vlm-pose-analysis.md": {
+    "mtime": 1778881911.4505837,
+    "ast_hash": "d30a364a3a0948732caca11fa98068e3",
+    "semantic_hash": "d30a364a3a0948732caca11fa98068e3"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\plans\\2026-05-15-gallery-missing-thumbnails.md": {
+    "mtime": 1778902286.702099,
+    "ast_hash": "1010fa44edb316895bdb0eaf602f9887",
+    "semantic_hash": "1010fa44edb316895bdb0eaf602f9887"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\plans\\2026-05-15-vlm-batch-orchestration.md": {
+    "mtime": 1778881911.451643,
+    "ast_hash": "c5dcba6de4d15a1f3c31f39e2098cf7c",
+    "semantic_hash": "c5dcba6de4d15a1f3c31f39e2098cf7c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\specs\\2026-05-11-fast-model-download-design.md": {
+    "mtime": 1778518321.7758248,
+    "ast_hash": "f30bebfbeb32fa7e8de69c9a37342f51",
+    "semantic_hash": "f30bebfbeb32fa7e8de69c9a37342f51"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\specs\\2026-05-12-vlm-pose-analysis-design.md": {
+    "mtime": 1778881911.4527242,
+    "ast_hash": "d2d895e9a3b45eca81ac2480a9aa9b3c",
+    "semantic_hash": "d2d895e9a3b45eca81ac2480a9aa9b3c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\specs\\2026-05-15-gallery-missing-thumbnails-design.md": {
+    "mtime": 1778901861.490055,
+    "ast_hash": "631c2cd49e600047f48a24271710063a",
+    "semantic_hash": "631c2cd49e600047f48a24271710063a"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\superpowers\\specs\\2026-05-16-vlm-profile-system-design.md": {
+    "mtime": 1778911951.3526483,
+    "ast_hash": "15d4024cec557914eb65fd8fbba8814a",
+    "semantic_hash": "15d4024cec557914eb65fd8fbba8814a"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\output\\README.md": {
+    "mtime": 1778625828.8017778,
+    "ast_hash": "c7b2e223c3cbc2cabdfe03044a4e95be",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\vlm.yml": {
+    "mtime": 1778899698.8056624,
+    "ast_hash": "a32c3cef62c261ee609662b69a87b946",
+    "semantic_hash": "a32c3cef62c261ee609662b69a87b946"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana.yml": {
+    "mtime": 1778558424.8231986,
+    "ast_hash": "44d25c069ad7e91877ba037f1237532c",
+    "semantic_hash": "44d25c069ad7e91877ba037f1237532c"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana_batch_1.yml": {
+    "mtime": 1778512929.6091945,
+    "ast_hash": "e872ae5be3e5ad4e1ad36ee81d3abe43",
+    "semantic_hash": "e872ae5be3e5ad4e1ad36ee81d3abe43"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana_batch_2.yml": {
+    "mtime": 1778512935.7626188,
+    "ast_hash": "f7293a4b1ec238c839dc8a56023f8f69",
+    "semantic_hash": "f7293a4b1ec238c839dc8a56023f8f69"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana_cs_sweep.yml": {
+    "mtime": 1778555904.054884,
+    "ast_hash": "ade8557a0bfb7f89ac6b9ab1686d5295",
+    "semantic_hash": "ade8557a0bfb7f89ac6b9ab1686d5295"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana_strong.yml": {
+    "mtime": 1778555898.0890615,
+    "ast_hash": "ae6d25725efd6d41ffe16f5840053081",
+    "semantic_hash": "ae6d25725efd6d41ffe16f5840053081"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\profiles\\yoga_asana_v1_archival.yml": {
+    "mtime": 1778620850.5675347,
+    "ast_hash": "f60af9f975365ca735b21d0bbf98c319",
+    "semantic_hash": "f60af9f975365ca735b21d0bbf98c319"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\ideal-targets\\standard-wooden-mannequin-02.jpg": {
+    "mtime": 1778627330.2015734,
+    "ast_hash": "04e6abcb061c2ee4df411ad0de3c3152",
+    "semantic_hash": "04e6abcb061c2ee4df411ad0de3c3152"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\ideal-targets\\wooden-mannequin-cell-drawing-01.jpg": {
+    "mtime": 1778627330.2118766,
+    "ast_hash": "3b281efcf48cfc015c18827afee13250",
+    "semantic_hash": "3b281efcf48cfc015c18827afee13250"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\batch-feature\\yoga-pose-sample-1.png": {
+    "mtime": 1778621803.2894733,
+    "ast_hash": "62ef3505f2174d9ad28f95c55a36da39",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-1-comparison_2.png": {
+    "mtime": 1778621803.0491133,
+    "ast_hash": "438567015a07808eae2695c2d7966876",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-1-comparison_4.png": {
+    "mtime": 1778621803.0599065,
+    "ast_hash": "c976182d34cc34ccc590ea09aee9c5de",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-comparison_2.png": {
+    "mtime": 1778621803.0706842,
+    "ast_hash": "bd3f8d241da91051498a529c2dcbf379",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-comparison_4.png": {
+    "mtime": 1778621803.0804873,
+    "ast_hash": "56343357c588e681ec881a43df27d205",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-controlnet.png": {
+    "mtime": 1778621803.0907853,
+    "ast_hash": "14c860a3f023824d4890421b563123e8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-mannequin-1.png": {
+    "mtime": 1778621803.1015973,
+    "ast_hash": "81cac2c4d15f2f6c48ba5bbc9b1b8372",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-1-mannequin.png": {
+    "mtime": 1778621803.1128771,
+    "ast_hash": "c2d25b612a5814618a0c11dba878a814",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-3-comparison_2.png": {
+    "mtime": 1778621803.1266463,
+    "ast_hash": "3e9265b6984c6be538dc77938ae10224",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-3-comparison_4.png": {
+    "mtime": 1778621803.1384385,
+    "ast_hash": "0bf40ff2a37546ad75f6afb3ad137b48",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-3-controlnet.png": {
+    "mtime": 1778621803.14874,
+    "ast_hash": "c6a2667d1ea30d36a8bcfdc3e2cc0e71",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-3-mannequin.png": {
+    "mtime": 1778621803.1604934,
+    "ast_hash": "a5af4b7ca776e6b8d357f0d192ebcaf9",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-4-comparison_2.png": {
+    "mtime": 1778621803.1746976,
+    "ast_hash": "70d98164275fa37444b4ca338e52ae86",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-4-comparison_4.png": {
+    "mtime": 1778621803.1874616,
+    "ast_hash": "9d47ff24342eb1021e843b508474fe46",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-4-controlnet.png": {
+    "mtime": 1778621803.199725,
+    "ast_hash": "c51e653c423b3e561577b6ae34b5e342",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-4-mannequin.png": {
+    "mtime": 1778621803.2115214,
+    "ast_hash": "9ec185ca6a4e534a80a5f89f056dc25e",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-5-comparison_2.png": {
+    "mtime": 1778621803.2227879,
+    "ast_hash": "f1e8ee289397fe418683e931a0ae1c28",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-5-comparison_4.png": {
+    "mtime": 1778621803.2335663,
+    "ast_hash": "99a84a4c958499e555fd3ffe4af0f6a5",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-5-controlnet.png": {
+    "mtime": 1778621803.2443433,
+    "ast_hash": "dd5873198590c8f95a80a08cb766015c",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\docs\\reference-outputs\\v1-baseline\\yoga-pose-sample-5-mannequin.png": {
+    "mtime": 1778621803.2536743,
+    "ast_hash": "68dca0b5c324962d22d7e82356f81703",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\input\\reference\\yoga-pose-sample-1.webp": {
+    "mtime": 1753009912.1082716,
+    "ast_hash": "43b79d84aa21df1884c71fbf15f8c281",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\input\\reference\\yoga-pose-sample-3.webp": {
+    "mtime": 1753009967.1597004,
+    "ast_hash": "3ec64a95b001896be132e7734369e679",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\input\\reference\\yoga-pose-sample-4.jpg": {
+    "mtime": 1753009988.1263344,
+    "ast_hash": "9dc554b106f1c01e0142017fc6c5b38f",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\input\\reference\\yoga-pose-sample-5.webp": {
+    "mtime": 1753010008.420543,
+    "ast_hash": "05d5c055f068bb39cfbcc6534c42ba05",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\output\\yoga-pose-sample-1-controlnet.png": {
+    "mtime": 1753030843.034532,
+    "ast_hash": "14c860a3f023824d4890421b563123e8",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\output\\yoga-pose-sample-1.png": {
+    "mtime": 1753030911.055577,
+    "ast_hash": "62ef3505f2174d9ad28f95c55a36da39",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\output\\reference\\standard-wooden-mannequin-02.jpg": {
+    "mtime": 1778544252.749381,
+    "ast_hash": "04e6abcb061c2ee4df411ad0de3c3152",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\output\\reference\\wooden-mannequin-cell-drawing-01.jpg": {
+    "mtime": 1778544336.2854435,
+    "ast_hash": "3b281efcf48cfc015c18827afee13250",
+    "semantic_hash": ""
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\.claude\\settings.json": {
+    "mtime": 1779078079.8040876,
+    "ast_hash": "5d6ecd96cf065b16e8bb9fbf5d7d8f0d",
+    "semantic_hash": "5d6ecd96cf065b16e8bb9fbf5d7d8f0d"
+  },
+  "C:\\Users\\kaanchan\\Projects\\Yoga\\yogamann\\CLAUDE.md": {
+    "mtime": 1779076483.9223313,
+    "ast_hash": "8a6643a420fdad6bfb583523bc6cef16",
+    "semantic_hash": "8a6643a420fdad6bfb583523bc6cef16"
+  }
+}
