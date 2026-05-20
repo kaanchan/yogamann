@@ -1,5 +1,15 @@
 # PROGRESS
 
+## 2026-05-19 — Semantic knowledge graph + wiki (#39)
+
+- Ran full graphify semantic build: 370 nodes, 536 edges, 36 named communities
+- Contributed 167 semantic nodes (78 doc, 84 rationale, 2 image) and 93 inferred edges
+- Wrote 23 wiki articles in graphify-out/wiki/ — one per major community
+- Set up three viewers: Docsify (3456), MkDocs Material (3457), mdBook (3458)
+- Added mkdocs.yml, book.toml, SUMMARY.md, _sidebar.md, index.html
+- Gitignored build artifacts (mdbook-out/, cache/, .graphify_*, yogamann.db)
+- Committed 41 files, closed #39
+
 ## 2026-05-18 — VLM system prompt fix + named prompt variants (#37, #38)
 
 ### Completed
