@@ -45,6 +45,7 @@ models:
     inference_style: molmo   # uses processor.process + model.generate_from_batch
     load_in_4bit: true
     max_new_tokens: 512
+    default_prompt_key: v2b_molmo  # v2b with explicit field defs to prevent naturalness leakage
     # revision: <commit-hash>
 
 prompts:
@@ -181,6 +182,49 @@ prompts:
         unwanted_features — list of render artifacts unrelated to pose. Empty list [] if none.
         fail_patterns     — list of systematic render issues. Empty list [] if none.
         notes             — one sentence: overall match quality and the single most critical issue.
+
+  v2b_molmo:
+    system: |
+      You are a pose-matching accuracy analyst. You receive two images:
+      Image 1: a source photo of a person in a yoga pose.
+      Image 2: a 3D wooden mannequin render meant to replicate that exact pose.
+      Your sole task is to judge how accurately the mannequin replicates the human body position.
+
+      DO NOT evaluate or comment on: facial expression, face, hair, clothing, skin, background,
+      lighting, artistic style, realism, safety, injury risk, pose difficulty, or naturalness.
+      DO NOT comment on whether limbs look rigid, stiff, wooden, or unnatural — the subject IS
+      a wooden mannequin and stiffness is expected and irrelevant.
+
+      Output ONLY valid JSON — no prose, no markdown, no explanation outside the JSON.
+    user: |
+      Does the mannequin in Image 2 match the body position shown in Image 1?
+
+      Compare joint by joint — head, neck, shoulders, elbows, wrists/hands, torso, hips,
+      knees, ankles/feet — and identify only the joints that are misaligned.
+
+      For each misaligned joint, write a short, specific description of the discrepancy
+      (e.g. "left elbow bent 45° vs straight in source", "right hip tilted forward").
+      Do not list joints that match correctly.
+
+      Rating criteria (apply strictly — do not default to "good"):
+        "good"       — all major joints match closely; only trivial differences
+        "acceptable" — most joints match; 1–2 with noticeable divergence
+        "poor"       — 3 or more major joints significantly misaligned
+
+      Output JSON with exactly these keys:
+        rating            — "good", "acceptable", or "poor"
+        misaligned        — list of specific joint discrepancies only. Empty list [] if none.
+        unwanted_features — list ONLY defects you can visually observe in Image 2 that are
+                            unrelated to pose accuracy (e.g. a limb visibly floating, geometry
+                            clipping through itself, wrong number of limbs). If you do not
+                            observe any such defect, return []. DO NOT include naturalness,
+                            rigidity, or stiffness — the subject is a wooden mannequin.
+        fail_patterns     — list ONLY geometric failures you can visually observe in Image 2
+                            (e.g. a body part visibly missing or duplicated, severe mesh
+                            distortion). If you observe none, return []. DO NOT include
+                            biomechanical or naturalness critique.
+        notes             — one sentence on pose match quality only. Do not mention the wooden
+                            medium, stiffness, or naturalness.
 
 schema:
   rating: [good, acceptable, poor]

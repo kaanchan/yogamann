@@ -297,6 +297,51 @@ def test_load_config_named_prompts_prompt_key_override(tmp_path):
     assert result["prompt"]["user"] == "V2 user with checklist."
 
 
+_MODEL_DEFAULT_PROMPT_YAML = textwrap.dedent("""\
+    active_model: base_model
+    active_prompt: v1
+    models:
+      base_model:
+        repo: test/repo
+        backend: transformers
+      molmo_model:
+        repo: test/molmo
+        backend: transformers
+        default_prompt_key: v2_checklist
+    prompts:
+      v1:
+        system: "V1 system."
+        user: "V1 user."
+      v2_checklist:
+        system: "V2 system with checklist."
+        user: "V2 user with checklist."
+    schema:
+      rating: [good, acceptable, poor]
+      required: [rating, misaligned, unwanted_features, fail_patterns, notes]
+""")
+
+
+def test_load_config_model_default_prompt_key_used_when_no_override(tmp_path):
+    cfg = tmp_path / "vlm.yml"
+    cfg.write_text(_MODEL_DEFAULT_PROMPT_YAML)
+    result = _load_config(model_key="molmo_model", config_path=cfg)
+    assert result["prompt"]["system"] == "V2 system with checklist."
+
+
+def test_load_config_explicit_prompt_key_overrides_model_default(tmp_path):
+    cfg = tmp_path / "vlm.yml"
+    cfg.write_text(_MODEL_DEFAULT_PROMPT_YAML)
+    result = _load_config(model_key="molmo_model", config_path=cfg, prompt_key="v1")
+    assert result["prompt"]["system"] == "V1 system."
+
+
+def test_load_config_model_without_default_falls_back_to_active_prompt(tmp_path):
+    cfg = tmp_path / "vlm.yml"
+    cfg.write_text(_MODEL_DEFAULT_PROMPT_YAML)
+    result = _load_config(model_key="base_model", config_path=cfg)
+    assert result["prompt"]["system"] == "V1 system."
+
+
 def test_load_config_legacy_prompt_field_backward_compat(tmp_path):
     cfg = tmp_path / "vlm.yml"
     cfg.write_text(_LEGACY_PROMPT_YAML)

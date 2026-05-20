@@ -76,7 +76,8 @@ def _load_config(model_key: str | None = None, config_path: Path | None = None, 
     result = dict(cfg["models"][key])
     result["model_key"] = key
     if "prompts" in cfg:
-        active_key = prompt_key if prompt_key is not None else cfg["active_prompt"]
+        model_default = cfg["models"][key].get("default_prompt_key")
+        active_key = prompt_key if prompt_key is not None else (model_default or cfg["active_prompt"])
         result["prompt"] = cfg["prompts"][active_key]
     else:
         result["prompt"] = cfg["prompt"]
