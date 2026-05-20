@@ -51,14 +51,14 @@ def _vram() -> str:
 
 
 def build_pipe(device: str):
-    log.info("Loading ControlNet — %s (bfloat16)", CONTROL_ID)
-    cn = ControlNetModel.from_pretrained(CONTROL_ID, torch_dtype=torch.bfloat16)
+    log.info("Loading ControlNet — %s (float16)", CONTROL_ID)
+    cn = ControlNetModel.from_pretrained(CONTROL_ID, torch_dtype=torch.float16)
 
-    log.info("Loading SDXL pipeline — %s (bfloat16)", BASE_ID)
+    log.info("Loading SDXL pipeline — %s (float16)", BASE_ID)
     pipe = StableDiffusionXLControlNetPipeline.from_pretrained(
         BASE_ID,
         controlnet=cn,
-        torch_dtype=torch.bfloat16,
+        torch_dtype=torch.float16,
         variant="fp16",
     )
     pipe.scheduler = DPMSolverMultistepScheduler.from_config(pipe.scheduler.config)
