@@ -21,9 +21,22 @@ that is not a leak, and must not be flagged as one, or the signal drowns in nois
 
 ONE primary issue per turn. A turn spanning two issues is a signal to SPLIT THE TURN.
 
-ADVISORY, never blocking: always exits 0. A missing tag prints a fail-loud reminder to
-stderr. FAIL-OPEN: any internal problem (no stdin, unreadable transcript, parse error)
-prints one 'skipped (reason)' line and exits 0. An advisory check must never wedge a session.
+ENFORCING, not advisory (2026-07-12). Anthropic is explicit that CLAUDE.md prose "is
+context, not enforced configuration" and that "if there's something that absolutely must
+not happen, an instruction is the wrong tool -- a real guardrail needs to be deterministic,
+and the enforcement methods are hooks and permissions." A rule we call NON-NEGOTIABLE
+while backing it with an advisory check is, by that standard, not enforced at all.
+
+  MISSING TAG      -> exit 2. Per the hooks docs, a Stop hook exiting 2 "prevents Claude
+                      from stopping, continues the conversation", and stderr is fed back
+                      to Claude -- so it can emit a corrective, tagged turn.
+  LOOP GUARD       -> if `stop_hook_active` is set we are ALREADY inside a blocked stop.
+                      Exit 0 unconditionally. Without this, a second untagged turn would
+                      block again, forever. A guardrail that can wedge the session is a
+                      worse bug than the one it prevents.
+  FAIL-OPEN        -> any internal problem (no stdin, unreadable transcript, parse error)
+                      prints one 'skipped (reason)' line and exits 0. A broken check must
+                      never block work.
 
 PRIVACY: reads only enough of the last assistant message to test the leading token. It never
 inspects, stores, or emits message content beyond a 40-char preview in the warning.
@@ -86,6 +99,9 @@ def main():
         print(f"check_issue_tag: skipped (unparseable hook input: {e})", file=sys.stderr)
         return 0
 
+    # LOOP GUARD -- load-bearing now that this hook BLOCKS (exit 2).
+    # If stop_hook_active is set, we are already inside a stop that this hook blocked.
+    # Blocking again would loop forever. One block, then let the turn end regardless.
     if payload.get("stop_hook_active"):
         return 0
 
@@ -119,18 +135,21 @@ def main():
 
     preview = text.lstrip()[:40].replace("\n", " ")
     print(
-        "check_issue_tag: WARNING (#131) - the last assistant turn had NO leading tag.\n"
-        "  Every turn must begin with ONE of:\n"
-        "    [#123]     work bound to issue 123        <- the normal case\n"
-        "    [unbound]  work with no issue yet         <- tripwire: file one\n"
-        "    [status]   status/report answer           <- not work, fine\n"
-        "    [chat]     conversation/clarification     <- not work, fine\n"
-        "    [meta]     quick command, no work product <- not work, fine\n"
+        "BLOCKED (#131): that turn had NO leading issue tag.\n"
         f"  Turn started: {preview!r}...\n"
-        "  Untagged turns fall back to inference and weaken time attribution.",
+        "\n"
+        "  Re-emit with ONE of these as the FIRST token of the FIRST line:\n"
+        "    [#123]     work bound to issue 123        <- the normal case\n"
+        "    [unbound]  work, but no issue yet         <- tripwire: file one NOW\n"
+        "    [status]   status/progress/report answer  <- not work, legitimate\n"
+        "    [chat]     conversation/clarification     <- not work, legitimate\n"
+        "    [meta]     quick command, no work product <- not work, legitimate\n"
+        "\n"
+        "  Untagged turns fall back to inference, which is what produced ~31% of\n"
+        "  hours being unattributable -- i.e. unbillable. This is why it blocks.",
         file=sys.stderr,
     )
-    return 0  # advisory: never block
+    return 2  # BLOCK: prevents the stop, feeds this back to Claude to correct
 
 
 if __name__ == "__main__":
