@@ -10,16 +10,6 @@
           }
         ]
       }
-    ],
-    "Stop": [
-      {
-        "hooks": [
-          {
-            "type": "command",
-            "command": "python .claude/hooks/check_issue_tag.py"
-          }
-        ]
-      }
     ]
   }
 }
