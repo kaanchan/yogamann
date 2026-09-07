@@ -67,13 +67,19 @@ def build_pipe(device: str):
     pipe.requires_safety_checker = False
     log.debug("VRAM after pipeline load: %s", _vram())
 
+    pipe.unet = _compile_unet(pipe.unet)
+    return pipe
+
+
+def _compile_unet(unet):
+    """Compile UNet — Triton reduce-overhead if available, else cudagraphs (#14)."""
     try:
         import triton  # noqa: F401
-        log.info("Compiling UNet with torch.compile (first run: ~2-5 min warmup)")
-        pipe.unet = torch.compile(pipe.unet, mode="reduce-overhead", fullgraph=False)
+        log.info("Compiling UNet with torch.compile (mode=reduce-overhead, first run: ~2-5 min warmup)")
+        return torch.compile(unet, mode="reduce-overhead", fullgraph=False)
     except ImportError:
-        log.warning("Triton not available — skipping torch.compile (install triton for ~2x speedup)")
-    return pipe
+        log.info("Triton not available — compiling UNet with torch.compile (backend=cudagraphs, no Triton needed)")
+        return torch.compile(unet, backend="cudagraphs")
 
 
 def render(task: Dict, device: str, pipe) -> None:

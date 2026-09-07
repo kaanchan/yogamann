@@ -1,0 +1,1 @@
+{"ts": "2026-09-07T02:17:05Z", "agent": "swarm 20260907T064155-yogamann", "issue": 14, "status": "claimed", "note": "restore torch.compile via cudagraphs backend, no Triton"}
