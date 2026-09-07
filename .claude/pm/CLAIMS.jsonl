@@ -1,1 +1,2 @@
 {"ts": "2026-09-07T02:17:05Z", "agent": "swarm 20260907T064155-yogamann", "issue": 14, "status": "claimed", "note": "restore torch.compile via cudagraphs backend, no Triton"}
+{"ts": "2026-09-07T02:23:00Z", "agent": "swarm 20260907T064155-yogamann", "issue": 14, "status": "done", "commit": "98d9b6b47ffb405930bc8e6c65d129893911512d", "branch": "swarm/20260907-14"}
