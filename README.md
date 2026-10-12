@@ -1,5 +1,7 @@
 # yogamann
 
+**Start here:** [Setup](#setup) → [make.ps1 workflows](#makeps1--common-workflows) → [Review gallery](#review-gallery-streamlit).
+
 Converts yoga pose photos into wooden artist mannequin renders using ControlNet-OpenPose + Stable Diffusion XL.
 
 Pipeline: **DWPose** detects the skeleton → **xinsir/controlnet-openpose-sdxl-1.0** conditions SDXL generation → contact-sheet comparisons saved alongside outputs → results ingested into a SQLite review database.
@@ -12,7 +14,7 @@ Pipeline: **DWPose** detects the skeleton → **xinsir/controlnet-openpose-sdxl-
 
 ## Setup
 
-Requires Python 3.11+ and an NVIDIA GPU (driver ≥ 572, RTX 40/50 series; tested on RTX 5080 16 GB).  
+Requires Python 3.13+ and an NVIDIA GPU (driver ≥ 572, RTX 40/50 series; tested on RTX 5080 16 GB).  
 PyTorch wheels bundle CUDA 13.0 — your system CUDA version doesn't matter.
 
 ```powershell

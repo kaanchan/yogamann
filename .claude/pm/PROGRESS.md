@@ -281,3 +281,8 @@
 - Set up `.claude/pm/` PM structure and `.claude/tmp/` gitignored staging
 - Pushed master to `origin/master`
 
+
+## 2026-10-12 swarm wave 22 (#16, mooladhara#498)
+- Added `src/pose_oks.py` + `tests/test_pose_oks.py` (OKS scoring primitive, 8 tests) — #16 (861adcd); full suite 53 passed on `.venv`
+- Sub-issue pass: 0 parent markers among 8 open issues, nothing to link; closure pass: no issue meets the default-branch gate, none closed
+- README: Python floor 3.11+ → 3.13+ (matches pyproject, .venv 3.13.5); added "Start here" line; link check 0 broken
