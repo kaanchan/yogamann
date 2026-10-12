@@ -1,0 +1,2 @@
+{"ts": "2026-10-12T11:37:15Z", "agent": "swarm 20261012T154840-yogamann", "issue": 16, "status": "claimed", "note": "OKS scoring primitive for pose self-eval"}
+{"ts": "2026-10-12T11:38:27Z", "agent": "swarm 20261012T154840-yogamann", "issue": 16, "status": "done", "commit": "861adcd", "branch": "swarm/20261012-wave"}
