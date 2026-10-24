@@ -33,3 +33,8 @@ graphify-out/.graphify_*
 
 # Local SQLite database
 yogamann.db
+
+# estate sync 2026-10-23
+.claude/settings.json.bak-*
+.claude/worktrees/
+graphify-out/ast/
