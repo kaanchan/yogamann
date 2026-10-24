@@ -147,10 +147,15 @@ def _run_model_phase(
     vlm_batch_size: int = 1,
     max_images: int | None = None,
     prompt_key: str | None = None,
+    force_exclude_ids: set[int] | None = None,
+    dry_run: bool = False,
 ) -> dict:
     """Annotate up to max_images candidate runs with one model, in micro-batches.
-    Returns {'ok': N, 'error': M, 'skipped': K, 'elapsed_s': T}.
+    Returns {'ok': N, 'error': M, 'skipped': K, 'elapsed_s': T, 'processed_ids': set}.
     max_images=None means run all remaining (model-major behaviour).
+    force_exclude_ids: when force=True in round-robin, IDs already done this session
+    are excluded so the slice advances through the corpus instead of cycling the same items.
+    dry_run: print the plan but skip model load and inference entirely.
     """
     # Compatibility gate: non-qwen_style models don't support batching.
     if vlm_batch_size > 1:
@@ -165,8 +170,9 @@ def _run_model_phase(
             vlm_batch_size = 1
 
     if force:
-        todo_full = candidates
-        skipped = 0
+        exclude = force_exclude_ids or set()
+        todo_full = [c for c in candidates if c["id"] not in exclude]
+        skipped = len(exclude)
     else:
         unanalyzed_ids = {r["id"] for r in get_unanalyzed_runs(conn, model_key)}
         todo_full = [r for r in candidates if r["id"] in unanalyzed_ids]
@@ -194,10 +200,20 @@ def _run_model_phase(
         else:
             print(f"  est. slice  : unknown (no prior samples for this model)")
 
-    stats = {"ok": 0, "error": 0, "skipped": skipped, "elapsed_s": 0.0}
+    stats = {"ok": 0, "error": 0, "skipped": skipped, "elapsed_s": 0.0, "processed_ids": set()}
     if not todo:
         if not quiet:
             print(f"  [{model_key}] nothing to do.")
+        return stats
+
+    if dry_run:
+        run_ids_preview = [r["id"] for r in todo[:5]]
+        ellipsis = "..." if len(todo) > 5 else ""
+        print(f"  [DRY-RUN] would process {len(todo)} image(s) — "
+              f"run ids: {run_ids_preview}{ellipsis}", flush=True)
+        # Populate processed_ids so session_done advances across rounds in force mode,
+        # letting dry-run simulate the full multi-round schedule correctly.
+        stats["processed_ids"] = {r["id"] for r in todo}
         return stats
 
     if not quiet:
@@ -240,6 +256,7 @@ def _run_model_phase(
 
                 if isinstance(result, MemoryError):
                     stats["error"] += 1
+                    stats["processed_ids"].add(run["id"])
                     print(f"  [{_ts()}] {model_key:<14} [OOM]  run={run['id']}: {result}")
                     if jsonl_fh is not None:
                         hw = gpu_sample()
@@ -256,6 +273,7 @@ def _run_model_phase(
 
                 elif isinstance(result, (FileNotFoundError, VLMSchemaError)):
                     stats["error"] += 1
+                    stats["processed_ids"].add(run["id"])
                     print(f"  [{_ts()}] {model_key:<14} [SKIP] run={run['id']}: {result}")
                     if jsonl_fh is not None:
                         hw = gpu_sample()
@@ -304,6 +322,7 @@ def _run_model_phase(
                         latency_s=result["latency_s"],
                     )
                     stats["ok"] += 1
+                    stats["processed_ids"].add(run["id"])
 
                     hw = gpu_sample()
                     if jsonl_fh is not None:
@@ -393,6 +412,9 @@ def main() -> None:
                              "(default: active_prompt from vlm.yml)")
     parser.add_argument("--force", action="store_true",
                         help="Re-annotate even if (run_id, model_id) already in DB")
+    parser.add_argument("--dry-run", action="store_true",
+                        help="Show what would be processed (slices, order, ETAs) without "
+                             "loading any model or writing to the DB")
     parser.add_argument("--batch-size", type=int, default=25,
                         help="Images per micro-batch (default 25)")
     parser.add_argument("--vlm-batch-size", type=int, default=None,
@@ -474,6 +496,8 @@ def main() -> None:
             )
             batch_eta_sec += hist_avg * n_todo
 
+    if args.dry_run:
+        print(f"[{_ts()}] *** DRY-RUN MODE — no model will be loaded, no DB writes ***")
     print(f"[{_ts()}] Batch orchestrator starting")
     print(f"Models in run  : {model_keys}")
     print(f"Candidate runs : {len(candidates)}")
@@ -521,6 +545,7 @@ def main() -> None:
                             args.gpu_temp_limit, args.cooldown_secs,
                             jsonl_fh, vlm_batch_size=_vlm_batch,
                             prompt_key=args.prompt_key,
+                            dry_run=args.dry_run,
                         ))
                     finally:
                         evict_model(model_key)
@@ -529,6 +554,9 @@ def main() -> None:
 
             else:  # round-robin (default)
                 round_num = 0
+                # Per-model set of run IDs processed this session — used by --force
+                # to advance the slice window instead of cycling the same items forever.
+                session_done: dict[str, set[int]] = {mk: set() for mk in model_keys}
                 while True:
                     round_num += 1
 
@@ -540,9 +568,9 @@ def main() -> None:
                     lag_str = "  ".join(
                         f"{mk.split('_')[0]}({counts[mk]})" for mk in ordered
                     )
-                    print(f"\n{'═'*60}", flush=True)
+                    print(f"\n{'='*60}", flush=True)
                     print(f"  Round {round_num}  [{_ts()}]  lag-order: {lag_str}", flush=True)
-                    print(f"{'═'*60}", flush=True)
+                    print(f"{'='*60}", flush=True)
 
                     any_work = False
                     for model_key in ordered:
@@ -568,9 +596,12 @@ def main() -> None:
                                 args.gpu_temp_limit, args.cooldown_secs,
                                 jsonl_fh, vlm_batch_size=_vlm_batch, max_images=slice_n,
                                 prompt_key=args.prompt_key,
+                                force_exclude_ids=session_done[model_key] if args.force else None,
+                                dry_run=args.dry_run,
                             )
+                            session_done[model_key] |= stats["processed_ids"]
                             _accumulate(model_key, stats)
-                            if stats["ok"] + stats["error"] > 0:
+                            if stats["ok"] + stats["error"] > 0 or stats["processed_ids"]:
                                 any_work = True
                         finally:
                             evict_model(model_key)
@@ -581,12 +612,20 @@ def main() -> None:
                         print(f"\n[{_ts()}] All models complete — nothing left to process.")
                         break
 
+    except KeyboardInterrupt:
+        print(f"\n[{_ts()}] Interrupted by user (Ctrl-C) — winding down cleanly ...",
+              flush=True)
     finally:
+        from vlm_inference import evict_all
+        evict_all()
         batch_lock.release(args.output_root)
-
-    total_elapsed = time.perf_counter() - t_total_start
-    print(f"\n[{_ts()}] BATCH COMPLETE in {_fmt_eta(total_elapsed)}")
-    print(format_summary(summary))
+        total_elapsed = time.perf_counter() - t_total_start
+        label = "DRY-RUN COMPLETE" if args.dry_run else "BATCH COMPLETE"
+        print(f"\n[{_ts()}] {label} in {_fmt_eta(total_elapsed)}")
+        if summary:
+            print(format_summary(summary))
+        else:
+            print("  (no annotations recorded)")
 
 
 if __name__ == "__main__":

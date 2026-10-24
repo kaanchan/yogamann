@@ -1,3 +1,13 @@
+## 2026-05-19 — Overnight annotation run launched
+
+- Fixed Molmo prompt compliance: added v2b_molmo variant to profiles/vlm.yml with "visually observe" framing to prevent echo-fill of examples
+- Added default_prompt_key to molmo_7b_d model config; resolved in _load_config() via model-level override before active_prompt fallback
+- Added 3 tests for model-level default_prompt_key logic (all 45 tests passing)
+- Fixed sd_make.py bfloat16/fp16 dtype mismatch (RTX 5080): switched both ControlNet and pipeline to torch.float16 consistently
+- Fixed Unicode crash in compare_vlm.py (U+2550 box chars → ASCII = signs)
+- Cleared 550 stale VLM annotations from D:/Temp/yogamann-output/yogamann.db (satchid 55 human reviews preserved)
+- Launched overnight run: 981 runs x 5 models, round-robin every 20, --force
+
 # PROGRESS
 
 ## 2026-05-19 — Semantic knowledge graph + wiki (#39)
