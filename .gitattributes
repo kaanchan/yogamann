@@ -1,0 +1,26 @@
+# managed by mooladhara #141
+# Normalize line endings in git to LF. This does NOT rewrite existing files -- git
+# applies attributes lazily at the next checkin/checkout. The win is cross-machine
+# consistency: core.autocrlf is per-machine, .gitattributes is committed and travels.
+* text=auto eol=lf
+
+# Windows batch files genuinely require CRLF (cmd.exe can misparse LF). None are
+# currently tracked anywhere in the estate -- this is a forward guard, not a fix.
+*.bat  text eol=crlf
+*.cmd  text eol=crlf
+
+# Never touch binaries or vendored/minified assets.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.pdf binary
+*.zip binary
+*.gz  binary
+*.mp3 binary
+*.mp4 binary
+*.wav binary
+*.db  binary
+*.sqlite binary
+*.min.js  -text
+*.min.css -text
