@@ -18,6 +18,7 @@ output/
 
 # Claude Code agent tmp staging (gitignored; pm/ is tracked)
 .claude/tmp/*
+!.claude/tmp/README.md
 !.claude/tmp/.gitkeep
 
 # OS
